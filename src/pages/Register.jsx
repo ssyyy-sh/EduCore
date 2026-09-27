@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiArrowRight, FiBookOpen, FiUser, FiUsers, FiBriefcase, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { FiArrowRight, FiBookOpen, FiUser, FiUsers, FiBriefcase, FiCheck, FiAlertCircle, FiInfo } from 'react-icons/fi';
 import { AuthLayout, PasswordInput } from './Login.jsx';
 import { IMAGES } from '../data/images.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -17,7 +17,8 @@ const TYPES = [
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, remote } = useAuth();
+  const [confirmSent, setConfirmSent] = useState('');
   const { t } = useI18n();
   const [type, setType] = useState('student');
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', org: '', agree: false });
@@ -26,7 +27,7 @@ export default function Register() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const errs = {};
     if (!form.name.trim()) errs.name = t('auth.register.errName');
@@ -38,16 +39,28 @@ export default function Register() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setLoading(true);
-    setTimeout(() => {
-      const res = register({ name: form.name, email: form.email, password: form.password, role: type, org: type === 'school' ? form.org : undefined });
-      setLoading(false);
-      if (!res.ok) {
-        setErrors({ email: res.error === 'exists' ? t('auth.register.errExists') : t('auth.errPassLen', { n: MIN_PASSWORD }) });
-        return;
-      }
-      navigate(homeFor(res.role), { replace: true });
-    }, 400);
+    const res = await register({ name: form.name, email: form.email, password: form.password, role: type, org: type === 'school' ? form.org : undefined });
+    setLoading(false);
+    if (!res.ok) {
+      const msg = { exists: t('auth.register.errExists'), weak: t('auth.errPassLen', { n: MIN_PASSWORD }), network: t('auth.login.errNetwork') }[res.error];
+      setErrors(res.error === 'network' ? { form: msg } : { email: msg });
+      return;
+    }
+    if (res.confirm) return setConfirmSent(form.email.trim());
+    navigate(res.role === 'pending' ? '/app' : homeFor(res.role), { replace: true });
   };
+
+  if (confirmSent) {
+    return (
+      <AuthLayout image={IMAGES.studentsLaptops}>
+        <h1>{t('auth.register.confirmTitle')}</h1>
+        <p className="auth-sub">{t('auth.register.confirmText', { email: confirmSent })}</p>
+        <Link to="/login" className="btn btn-primary btn-lg">
+          {t('auth.register.signIn')} <FiArrowRight />
+        </Link>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout image={IMAGES.studentsLaptops}>
@@ -67,6 +80,16 @@ export default function Register() {
             );
           })}
         </div>
+        {remote && (type === 'teacher' || type === 'school') && (
+          <p className="hint hint-box">
+            <FiInfo aria-hidden="true" /> {t('auth.register.approval')}
+          </p>
+        )}
+        {errors.form && (
+          <div className="alert alert-error" role="alert">
+            <FiAlertCircle aria-hidden="true" /> {errors.form}
+          </div>
+        )}
         <div className="field">
           <label className="label" htmlFor="r-name">
             {t('auth.register.name')}

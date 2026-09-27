@@ -54,7 +54,7 @@ function ClassChips({ value, onChange }) {
 
 export default function Staff() {
   const { teachers, tutors, students, addTeacher, editTeacher, setTutor, toast } = useApp();
-  const { createAccount } = useAuth();
+  const { createAccount, remote } = useAuth();
   const { t, ts, tStatus, fmtNum } = useI18n();
   const [tab, setTab] = useState('teachers');
   const [q, setQ] = useState('');
@@ -84,18 +84,21 @@ export default function Staff() {
 
   const classes = CLASSES.filter((c) => !year || String(c.grade) === year);
 
-  const submitAdd = () => {
+  const submitAdd = async () => {
     const errs = {};
     if (!addForm.name.trim()) errs.name = t('auth.register.errName');
     if (!/^\S+@\S+\.\S+$/.test(addForm.email.trim())) errs.email = t('auth.register.errEmail');
     if (Object.keys(errs).length) return setAddForm({ ...addForm, errors: errs });
     const password = randomPassword();
-    const res = createAccount({ name: addForm.name, email: addForm.email, password, role: 'teacher' });
-    if (!res.ok) return setAddForm({ ...addForm, errors: { email: t('auth.register.errExists') } });
+    setAddForm({ ...addForm, busy: true, errors: {} });
+    const res = await createAccount({ name: addForm.name, email: addForm.email, password, role: 'teacher' });
+    if (!res.ok) return setAddForm({ ...addForm, busy: false, errors: { email: res.error === 'exists' ? t('auth.register.errExists') : t('auth.login.errNetwork') } });
     addTeacher({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), subject: addForm.subject, classes: addForm.classes });
     setAddForm(null);
-    setCreated({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), password });
+    setCreated({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), password: res.invite ? null : password });
   };
+
+  const signUpUrl = __HASH_ROUTER__ ? `${window.location.origin}${window.location.pathname}#/register` : `${window.location.origin}/register`;
 
   const copy = async (text) => {
     try {
@@ -275,14 +278,14 @@ export default function Staff() {
         open={!!addForm}
         onClose={() => setAddForm(null)}
         title={t('staff.add')}
-        description={t('staff.addDesc')}
+        description={remote ? t('staff.inviteDesc') : t('staff.addDesc')}
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setAddForm(null)}>
               {t('common.cancel')}
             </button>
-            <button type="button" className="btn btn-primary" onClick={submitAdd}>
-              {t('staff.addBtn')}
+            <button type="button" className="btn btn-primary" onClick={submitAdd} disabled={addForm?.busy}>
+              {remote ? t('staff.inviteBtn') : t('staff.addBtn')}
             </button>
           </>
         }
@@ -326,8 +329,8 @@ export default function Staff() {
       <Modal
         open={!!created}
         onClose={() => setCreated(null)}
-        title={t('staff.createdTitle')}
-        description={t('staff.createdText')}
+        title={created?.password ? t('staff.createdTitle') : t('staff.inviteTitle')}
+        description={created?.password ? t('staff.createdText') : t('staff.inviteText')}
         footer={
           <button type="button" className="btn btn-primary" onClick={() => setCreated(null)}>
             {t('staff.done')}
@@ -344,6 +347,7 @@ export default function Staff() {
               <dt>{t('auth.email')}</dt>
               <dd className="mono">{created.email}</dd>
             </div>
+            {created.password ? (
             <div>
               <dt>{t('auth.password')}</dt>
               <dd className="mono">
@@ -353,6 +357,17 @@ export default function Staff() {
                 </button>
               </dd>
             </div>
+            ) : (
+              <div>
+                <dt>{t('staff.signUpAt')}</dt>
+                <dd className="mono">
+                  {signUpUrl}
+                  <button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={t('staff.copy')} onClick={() => copy(`${signUpUrl}\n${created.email}`)}>
+                    <FiCopy />
+                  </button>
+                </dd>
+              </div>
+            )}
           </dl>
         )}
       </Modal>

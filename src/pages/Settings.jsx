@@ -49,7 +49,7 @@ function InstallApp() {
 
 export default function Settings() {
   const { theme, setTheme, toast, prefs, setPref } = useApp();
-  const { user, updateProfile, changePassword, logout } = useAuth();
+  const { user, updateProfile, changePassword, logout, remote } = useAuth();
   const { t, lang, setLang } = useI18n();
   const meta = useRoleMeta();
   const navigate = useNavigate();
@@ -57,6 +57,7 @@ export default function Settings() {
   const [section, setSection] = useState(() => (SECTIONS.some((s) => s.key === params.get('section')) ? params.get('section') : 'profile'));
   const [name, setName] = useState(user.name);
   const isOwnerAcc = user.role === 'owner';
+  const ownerPwInConfig = isOwnerAcc && !remote;
   const cols = isOwnerAcc ? [...ROLE_KEYS, 'owner'] : ROLE_KEYS;
   const pageRows = isOwnerAcc ? [...PAGE_ORDER, 'owner'] : PAGE_ORDER;
   const [nameErr, setNameErr] = useState('');
@@ -78,12 +79,13 @@ export default function Settings() {
     toast(t('settings.saved'));
   };
 
-  const submitPassword = (e) => {
+  const submitPassword = async (e) => {
     e?.preventDefault();
     if (pw.next.length < MIN_PASSWORD) return setPw({ ...pw, error: t('auth.errPassLen', { n: MIN_PASSWORD }) });
     if (pw.next !== pw.confirm) return setPw({ ...pw, error: t('settings.errMatch') });
-    const res = changePassword(pw.current, pw.next);
-    if (!res.ok) return setPw({ ...pw, error: t('settings.errCurrent') });
+    setPw({ ...pw, error: '', busy: true });
+    const res = await changePassword(pw.current, pw.next);
+    if (!res.ok) return setPw({ ...pw, busy: false, error: t('settings.errCurrent') });
     setPw(null);
     toast(t('settings.passwordChangedToast'));
   };
@@ -241,7 +243,7 @@ export default function Settings() {
                       </strong>
                       <span>{t('settings.passwordHint', { n: MIN_PASSWORD })}</span>
                     </div>
-                    {isOwnerAcc ? (
+                    {ownerPwInConfig ? (
                       <span className="hint">{t('settings.ownerPassword')}</span>
                     ) : (
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPw({ current: '', next: '', confirm: '', error: '' })}>
@@ -259,8 +261,8 @@ export default function Settings() {
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        logout();
+                      onClick={async () => {
+                        await logout();
                         navigate('/login', { replace: true });
                       }}
                     >

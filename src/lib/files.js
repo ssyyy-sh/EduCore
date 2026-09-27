@@ -1,7 +1,11 @@
 /*
- * Stores uploaded files in the browser (IndexedDB), so a submitted PDF or photo
- * can be opened later on the same device. In production, files go to a server.
+ * Files of submitted work. Demo mode: kept in this browser (IndexedDB).
+ * Server mode: uploaded to Supabase Storage (bucket "submissions"), opened through a short-lived link.
  */
+import { REMOTE, supabase } from './supabase.js';
+
+const BUCKET = 'submissions';
+const safeName = (n) => String(n).normalize('NFKD').replace(/[^\w.-]+/g, '_').slice(-80) || 'file';
 const DB = 'educore-files';
 const STORE = 'files';
 export const MAX_FILE_MB = 5;
@@ -29,6 +33,15 @@ async function tx(mode, fn) {
 /** Save a File; returns its metadata { id, name, size, type }. */
 export async function saveFile(file) {
   const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (REMOTE) {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) throw new Error('not-signed-in');
+    const path = `${uid}/${id}-${safeName(file.name)}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+    if (error) throw error;
+    return { id, name: file.name, size: file.size, type: file.type, path };
+  }
   await tx('readwrite', (s) => s.put(file, id));
   return { id, name: file.name, size: file.size, type: file.type };
 }
@@ -43,7 +56,25 @@ export async function getFile(id) {
 }
 
 /** Open a stored file in a new tab (or download it if the browser blocks that). */
+function openUrl(url, meta, download) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  if (download) a.download = meta.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export async function openFile(meta) {
+  if (meta.path) {
+    if (!REMOTE) return false;
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(meta.path, 600);
+    if (error || !data?.signedUrl) return false;
+    openUrl(data.signedUrl, meta, false);
+    return true;
+  }
   const blob = await getFile(meta.id);
   if (!blob) return false;
   const url = URL.createObjectURL(blob);

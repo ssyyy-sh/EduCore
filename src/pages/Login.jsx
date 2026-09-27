@@ -59,34 +59,44 @@ export function PasswordInput({ id, value, onChange, autoComplete, placeholder, 
   );
 }
 
+const LOGIN_ERRORS = { unconfirmed: 'auth.login.errUnconfirmed', blocked: 'auth.login.errBlocked', network: 'auth.login.errNetwork' };
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, remote, sendReset, notice } = useAuth();
+  const [resetSent, setResetSent] = useState(false);
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => (notice === 'blocked' ? t('auth.login.errBlocked') : ''));
   const [loading, setLoading] = useState(false);
   const [forgot, setForgot] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError(t('auth.login.errEmail'));
     if (!password) return setError(t('auth.login.errPassEmpty'));
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const res = login(email, password);
-      setLoading(false);
-      if (!res.ok) {
-        setError(t('auth.login.errInvalid'));
-        return;
-      }
-      const from = location.state?.from;
-      const page = from?.split('/')[2]?.split('?')[0];
-      navigate(from && page && canAccess(res.role, page) ? from : homeFor(res.role), { replace: true });
-    }, 400);
+    const res = await login(email, password);
+    setLoading(false);
+    if (!res.ok) {
+      setError(t(LOGIN_ERRORS[res.error] || 'auth.login.errInvalid'));
+      return;
+    }
+    if (res.role === 'pending') return navigate('/app', { replace: true });
+    const from = location.state?.from;
+    const page = from?.split('/')[2]?.split('?')[0];
+    navigate(from && page && canAccess(res.role, page) ? from : homeFor(res.role), { replace: true });
+  };
+
+  const requestReset = async () => {
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError(t('auth.login.errEmail'));
+    setError('');
+    const res = await sendReset(email);
+    if (res.ok) setResetSent(true);
+    else setError(t('auth.login.errNetwork'));
   };
 
   return (
@@ -115,11 +125,28 @@ export default function Login() {
             </button>
           </div>
           <PasswordInput id="l-pass" value={password} onChange={setPassword} autoComplete="current-password" />
-          {forgot && (
-            <p className="hint hint-box">
-              <FiInfo aria-hidden="true" /> {t('auth.forgotText')}
-            </p>
-          )}
+          {forgot &&
+            (remote ? (
+              <div className="hint hint-box">
+                <FiInfo aria-hidden="true" />
+                <div>
+                  {resetSent ? (
+                    t('auth.resetSent', { email: email.trim() })
+                  ) : (
+                    <>
+                      {t('auth.resetText')}{' '}
+                      <button type="button" className="link-btn" onClick={requestReset}>
+                        {t('auth.resetSend')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="hint hint-box">
+                <FiInfo aria-hidden="true" /> {t('auth.forgotText')}
+              </p>
+            ))}
         </div>
         <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
           {loading && <span className="spinner" />}
@@ -128,7 +155,7 @@ export default function Login() {
         </button>
       </form>
 
-      {SHOW_DEMO_ACCOUNTS && (
+      {SHOW_DEMO_ACCOUNTS && !remote && (
         <div className="demo-accounts">
           <p className="demo-title">{t('auth.demo.title')}</p>
           <p className="hint">{t('auth.demo.text')}</p>

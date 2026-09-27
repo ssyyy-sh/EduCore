@@ -1,5 +1,6 @@
 export default {
   common: {
+    loading: "Loading…",
     exportCsv: "Export CSV",
     new: "New",
     language: 'Language',
@@ -90,6 +91,7 @@ export default {
     evening: 'Good evening',
   },
   roles: {
+    pending: "Awaiting approval",
     owner: "Owner",
     ownerMeta: "Owner · full access",
     student: 'Student',
@@ -331,6 +333,9 @@ export default {
     },
   },
   auth: {
+    resetText: "We’ll send a link to set a new password to the email above.",
+    resetSend: "Send link",
+    resetSent: "Done. If an account with {email} exists, a link to set a new password is on its way — check your inbox and spam.",
     back: 'Back to website',
     foot: '© 2026 EduCore',
     email: 'Email',
@@ -349,6 +354,9 @@ export default {
       text: 'Each role has its own login. Click a row to fill in the form, then sign in.',
     },
     login: {
+      errUnconfirmed: "Confirm your email first — open the link we sent you, then sign in.",
+      errBlocked: "This account is blocked. Contact the school administration.",
+      errNetwork: "Couldn’t reach the server. Check the connection and try again.",
       title: 'Sign in to EduCore',
       sub: 'Use the email and password of your account.',
       submit: 'Sign in',
@@ -360,6 +368,9 @@ export default {
       errInvalid: 'Email or password is incorrect.',
     },
     register: {
+      approval: "Teacher and school admin accounts are activated after the owner approves them. Accounts prepared by the school admin are activated at once.",
+      confirmTitle: "Check your email",
+      confirmText: "We sent a confirmation link to {email}. Open it, then sign in.",
       title: 'Create your account',
       sub: 'Choose your role. It decides which dashboard you’ll see.',
       type: 'Account type',
@@ -870,6 +881,11 @@ export default {
     noMissed: "No absences or late arrivals this term.",
   },
   staff: {
+    inviteBtn: "Save and invite",
+    inviteDesc: "The teacher signs up with this email and gets the teacher role automatically.",
+    inviteTitle: "Invitation saved",
+    inviteText: "Send the teacher this link. They sign up with this email and get the teacher role automatically.",
+    signUpAt: "Sign-up page",
     title: "Staff & classes",
     sub: "{teachers} active teachers · {classes} classes",
     teachers: "Teachers",
@@ -975,6 +991,23 @@ export default {
     parent: "Parent or guardian",
   },
   owner: {
+    accountsSubRemote: "Everyone who has an account on this site.",
+    dataSubRemote: "Grades, attendance, submissions, announcements and staff changes saved on the server.",
+    resetRemote: "Reset school data",
+    resetTextRemote: "Deletes all grades, attendance, submissions, announcements and staff changes on the server. Accounts stay.",
+    resetConfirmRemote: "All school data on the server will be deleted for everyone. Accounts stay. This can’t be undone — download a backup first.",
+    block: "Block",
+    unblock: "Unblock",
+    blocked: "Blocked",
+    blockTitle: "Block this account?",
+    blockText: "{name} won’t be able to sign in or see any data until unblocked.",
+    blockedToast: "{name} blocked",
+    unblocked: "{name} unblocked",
+    sendReset: "Send password reset email",
+    resetEmailSent: "Password reset email sent to {email}",
+    pendingBanner: "Accounts awaiting approval: {n}. Choose a role to activate them.",
+    wants: "wants: {role}",
+    remoteHint: "Access is checked by the database on the server: only the owner can change roles or block accounts. Another owner can be added in Supabase → SQL Editor.",
     title: "Owner console",
     sub: "Full access: open the app as any role, manage accounts and data.",
     viewAs: "Open the app as",
@@ -1020,6 +1053,24 @@ export default {
     resetConfirm: "Everything saved in this browser except accounts will be deleted. This can’t be undone.",
     resetDone: "Demo data reset",
     passwordHint: "The Owner email and password are set in src/config.js. To change them, run: npm run owner-password -- \"New-Password\" your@email — then npm run build:docs and push.",
+  },
+  pending: {
+    title: "Awaiting approval",
+    text: "You signed up as: {role}. The owner of the site has to approve the account. After that, press “Check again”.",
+    check: "Check again",
+  },
+  recovery: {
+    title: "Set a new password",
+    text: "Enter a new password for your account.",
+    save: "Save password",
+    failed: "Couldn’t save the password. Open the link from the email again.",
+  },
+  sync: {
+    error: "Couldn’t save the change on the server. Check the connection — the screen shows what is saved.",
+  },
+  emailLink: {
+    title: "Link expired or already used",
+    text: "Links from emails work once and for a limited time. Sign in, or request a new link with “Forgot password”.",
   },
   notFound: { title: 'This page doesn’t exist', text: 'The link may be outdated, or the page was moved.', back: 'Back to website', open: 'Open dashboard' },
 };

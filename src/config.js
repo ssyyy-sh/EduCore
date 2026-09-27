@@ -6,6 +6,14 @@
  */
 export const SHOW_DEMO_ACCOUNTS = true;
 
+/**
+ * Server (Supabase). Leave empty → the site works as a demo, everything is kept in the browser.
+ * Fill in both → real accounts and shared data for all devices (see SUPABASE.md).
+ * Supabase → Project Settings → API: "Project URL" and the "anon public" key (this key is meant to be public).
+ */
+export const SUPABASE_URL = '';
+export const SUPABASE_ANON_KEY = '';
+
 /** Demo accounts — one per role. Each has its own email and password. */
 export const DEMO_ACCOUNTS = [
   { id: 'demo-student', role: 'student', name: 'Alex Morgan', email: 'alex.morgan@northbridge.edu', password: 'Student2026!' },

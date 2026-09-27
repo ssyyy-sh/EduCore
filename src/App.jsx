@@ -27,6 +27,7 @@ import Owner from './pages/Owner.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { homeFor } from './lib/access.js';
 import { Toasts } from './components/ui/index.jsx';
+import { FullPageLoader, PendingApproval, RecoveryModal, EmailLinkError } from './components/AuthScreens.jsx';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -38,15 +39,18 @@ function ScrollToTop() {
 
 /** Only signed-in users reach /app. */
 function RequireAuth({ children }) {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const location = useLocation();
+  if (status === 'loading') return <FullPageLoader />;
+  if (user?.role === 'pending') return <PendingApproval />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return children;
 }
 
 /** Signed-in users skip the login/register pages. */
 function GuestOnly({ children }) {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
+  if (status === 'loading') return <FullPageLoader />;
   if (user) return <Navigate to={homeFor(user.role)} replace />;
   return children;
 }
@@ -90,6 +94,8 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toasts />
+      <RecoveryModal />
+      <EmailLinkError />
     </>
   );
 }

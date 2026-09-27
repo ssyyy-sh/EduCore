@@ -179,9 +179,9 @@ function UserMenu() {
             type="button"
             className="dropdown-item"
             role="menuitem"
-            onClick={() => {
+            onClick={async () => {
               close();
-              logout();
+              await logout();
               navigate('/login', { replace: true });
             }}
           >

@@ -1,4 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { AuthContext } from './authCore.js';
+import { REMOTE } from '../lib/supabase.js';
+import { RemoteAuthProvider } from './RemoteAuth.jsx';
+
+export { useAuth } from './authCore.js';
 import { DEMO_ACCOUNTS, MIN_PASSWORD, OWNER_ACCOUNT } from '../config.js';
 import { hashPassword } from '../lib/hash.js';
 import { readJSON, writeJSON, removeKey } from '../lib/storage.js';
@@ -38,9 +43,7 @@ function loadAccounts() {
 const newId = () => `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const ROLES = ['student', 'parent', 'teacher', 'school'];
 
-const AuthContext = createContext(null);
-
-export function AuthProvider({ children }) {
+function LocalAuthProvider({ children }) {
   const [accounts, setAccounts] = useState(loadAccounts);
   const [sessionId, setSessionId] = useState(() => readJSON(SESSION_KEY, null));
 
@@ -156,14 +159,11 @@ export function AuthProvider({ children }) {
   }, [account]);
 
   const value = useMemo(
-    () => ({ user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),
+    () => ({ status: 'ready', remote: false, user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),
     [user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-  return ctx;
-}
+/** Server accounts when Supabase is configured, browser-only demo accounts otherwise. */
+export const AuthProvider = REMOTE ? RemoteAuthProvider : LocalAuthProvider;

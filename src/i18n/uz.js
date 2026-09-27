@@ -1,5 +1,6 @@
 export default {
   common: {
+    loading: "Yuklanmoqda…",
     exportCsv: "CSV eksport",
     new: "Yangi",
     language: 'Til',
@@ -90,6 +91,7 @@ export default {
     evening: 'Xayrli kech',
   },
   roles: {
+    pending: "Tasdiqlash kutilmoqda",
     owner: "Egasi",
     ownerMeta: "Egasi · to‘liq kirish",
     student: 'O‘quvchi',
@@ -331,6 +333,9 @@ export default {
     },
   },
   auth: {
+    resetText: "Yangi parol uchun havolani yuqoridagi pochtaga yuboramiz.",
+    resetSend: "Havola yuborish",
+    resetSent: "Tayyor. Agar {email} hisobi mavjud bo‘lsa, havola yuborildi — kiruvchi va spam papkalarini tekshiring.",
     back: 'Saytga qaytish',
     foot: '© 2026 EduCore',
     email: 'Email',
@@ -349,6 +354,9 @@ export default {
       text: 'Har bir rolning o‘z logini bor. Formani to‘ldirish uchun qatorni bosing, so‘ng kiring.',
     },
     login: {
+      errUnconfirmed: "Avval pochtani tasdiqlang — xatdagi havolani oching, so‘ng kiring.",
+      errBlocked: "Hisob bloklangan. Maktab ma’muriyatiga murojaat qiling.",
+      errNetwork: "Server bilan aloqa yo‘q. Internetni tekshirib, qayta urinib ko‘ring.",
       title: 'EduCore’ga kirish',
       sub: 'Hisobingiz emaili va parolini kiriting.',
       submit: 'Kirish',
@@ -360,6 +368,9 @@ export default {
       errInvalid: 'Email yoki parol noto‘g‘ri.',
     },
     register: {
+      approval: "O‘qituvchi va administrator hisoblari ega tasdiqlagandan keyin faollashadi. Maktab administratori tayyorlagan hisoblar darhol faollashadi.",
+      confirmTitle: "Pochtani tekshiring",
+      confirmText: "{email} manziliga tasdiqlash havolasini yubordik. Uni oching, so‘ng kiring.",
       title: 'Hisob yarating',
       sub: 'Rolni tanlang — qaysi kabinetni ko‘rishingiz shunga bog‘liq.',
       type: 'Hisob turi',
@@ -870,6 +881,11 @@ export default {
     noMissed: "Bu chorakda qoldirilgan dars va kechikish yo‘q.",
   },
   staff: {
+    inviteBtn: "Saqlash va taklif qilish",
+    inviteDesc: "O‘qituvchi shu pochta bilan ro‘yxatdan o‘tadi va avtomatik ravishda o‘qituvchi rolini oladi.",
+    inviteTitle: "Taklif saqlandi",
+    inviteText: "O‘qituvchiga ushbu havolani yuboring. U shu pochta bilan ro‘yxatdan o‘tadi va avtomatik ravishda o‘qituvchi rolini oladi.",
+    signUpAt: "Ro‘yxatdan o‘tish sahifasi",
     title: "Xodimlar va sinflar",
     sub: "Faol o‘qituvchilar: {teachers} · sinflar: {classes}",
     teachers: "O‘qituvchilar",
@@ -975,6 +991,23 @@ export default {
     parent: "Ota-ona yoki vasiy",
   },
   owner: {
+    accountsSubRemote: "Ushbu saytda hisobi bor barcha foydalanuvchilar.",
+    dataSubRemote: "Serverda saqlangan baholar, davomat, topshirilgan ishlar, e’lonlar va xodimlar o‘zgarishlari.",
+    resetRemote: "Maktab ma’lumotlarini tiklash",
+    resetTextRemote: "Serverdagi barcha baholar, davomat, topshirilgan ishlar, e’lonlar va xodimlar o‘zgarishlarini o‘chiradi. Hisoblar qoladi.",
+    resetConfirmRemote: "Serverdagi barcha maktab ma’lumotlari hamma uchun o‘chiriladi. Hisoblar qoladi. Buni qaytarib bo‘lmaydi — avval zaxira nusxani yuklab oling.",
+    block: "Bloklash",
+    unblock: "Blokdan chiqarish",
+    blocked: "Bloklangan",
+    blockTitle: "Hisob bloklansinmi?",
+    blockText: "{name} blokdan chiqarilmaguncha tizimga kira olmaydi va ma’lumotlarni ko‘rmaydi.",
+    blockedToast: "{name} bloklandi",
+    unblocked: "{name} blokdan chiqarildi",
+    sendReset: "Parolni tiklash xatini yuborish",
+    resetEmailSent: "Parolni tiklash xati {email} manziliga yuborildi",
+    pendingBanner: "Tasdiqlash kutayotgan hisoblar: {n}. Faollashtirish uchun rolni tanlang.",
+    wants: "so‘ramoqda: {role}",
+    remoteHint: "Kirish huquqini serverdagi ma’lumotlar bazasi tekshiradi: rollarni faqat ega o‘zgartiradi va bloklaydi. Ikkinchi egani Supabase → SQL Editor orqali qo‘shish mumkin.",
     title: "Ega paneli",
     sub: "To‘liq kirish: ilovani istalgan rol sifatida oching, hisoblar va ma’lumotlarni boshqaring.",
     viewAs: "Ilovani kim sifatida ochish",
@@ -1020,6 +1053,24 @@ export default {
     resetConfirm: "Shu brauzerda saqlangan hamma narsa, hisoblardan tashqari, o‘chiriladi. Buni qaytarib bo‘lmaydi.",
     resetDone: "Demo ma’lumotlar tiklandi",
     passwordHint: "Ega pochtasi va paroli src/config.js da o‘rnatiladi. O‘zgartirish uchun: npm run owner-password -- \"Yangi-Parol\" sizning@pochta — so‘ng npm run build:docs va push.",
+  },
+  pending: {
+    title: "Tasdiqlash kutilmoqda",
+    text: "Siz ro‘yxatdan o‘tdingiz: {role}. Sayt egasi hisobni tasdiqlashi kerak. Shundan so‘ng “Qayta tekshirish” tugmasini bosing.",
+    check: "Qayta tekshirish",
+  },
+  recovery: {
+    title: "Yangi parol",
+    text: "Hisobingiz uchun yangi parol kiriting.",
+    save: "Parolni saqlash",
+    failed: "Parolni saqlab bo‘lmadi. Xatdagi havolani qayta oching.",
+  },
+  sync: {
+    error: "O‘zgarishni serverga saqlab bo‘lmadi. Internetni tekshiring — ekranda saqlangan holat ko‘rsatilgan.",
+  },
+  emailLink: {
+    title: "Havola eskirgan yoki allaqachon ishlatilgan",
+    text: "Xatlardagi havolalar bir marta va cheklangan vaqt ishlaydi. Tizimga kiring yoki “Parolni unutdingizmi?” orqali yangi havola so‘rang.",
   },
   notFound: { title: 'Bunday sahifa yo‘q', text: 'Havola eskirgan yoki sahifa ko‘chirilgan bo‘lishi mumkin.', back: 'Saytga qaytish', open: 'Kabinetni ochish' },
 };

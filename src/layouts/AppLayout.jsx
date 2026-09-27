@@ -52,7 +52,7 @@ function NoAccess({ role }) {
 
 export default function AppLayout() {
   const { pathname } = useLocation();
-  const { role, isOwner, setViewAs } = useApp();
+  const { role, isOwner, setViewAs, ready } = useApp();
   const [collapsed, setCollapsed] = useState(() => readJSON('educore.sidebar', false) === true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -79,7 +79,15 @@ export default function AppLayout() {
       <div className="app-main">
         <DashboardHeader onOpenMobile={() => setMobileOpen(true)} />
         <main className="app-content" key={pathname}>
-          {!allowed ? <NoAccess role={role} /> : wanted !== role ? null : <Outlet />}
+          {!ready ? (
+            <div className="content-loader" role="status">
+              <span className="spinner" />
+            </div>
+          ) : !allowed ? (
+            <NoAccess role={role} />
+          ) : wanted !== role ? null : (
+            <Outlet />
+          )}
         </main>
       </div>
       <MobileTabBar onMore={() => setMobileOpen(true)} />

@@ -37,10 +37,19 @@ of the password is stored). Change them with `npm run owner-password -- "New-Pas
 New accounts can be created on `/register` (student, parent, teacher or school admin).
 The demo logins are listed on the sign-in page; turn that off with `SHOW_DEMO_ACCOUNTS = false` in `src/config.js`.
 
-> **Important for production.** In this build, accounts, sessions and data changes are stored in the browser (localStorage) —
-> enough for a demo, but not real security: anyone with access to that browser can read or change them.
-> Before real students' data is used, move sign-in, passwords and role checks to a server (API + database) and keep the
-> same role map on the server side.
+## Two modes: demo and server
+
+- **Demo (default).** `SUPABASE_URL` / `SUPABASE_ANON_KEY` in `src/config.js` are empty: accounts and changes are kept in
+  the browser (localStorage / IndexedDB). Good for trying the product, not for real data.
+- **Server (Supabase).** Fill in both values: real sign-up / sign-in (email confirmation, password reset by email),
+  data shared by all devices, submitted files in Supabase Storage, live updates. Access is enforced in the database with
+  Row Level Security (`supabase/setup.sql`): e.g. only teachers write marks and attendance, a student can only hand in their
+  own work and can't grade it, only the owner changes roles or blocks accounts. Teacher / admin self-sign-ups wait for the
+  owner's approval; accounts the school admin prepared get their role on sign-up.
+  Step-by-step setup (in Russian): **[SUPABASE.md](SUPABASE.md)**.
+
+The school roster (4,862 students, 186 classes, 327 teachers) is still the demo data set in both modes; the server stores
+accounts and every change made in the app.
 
 ## Languages
 
@@ -120,5 +129,6 @@ src/
 public/                   icons, manifest, service worker, link-preview image, images/ (your photos)
 scripts/check-i18n.mjs    translation consistency check
 scripts/build-docs.mjs    builds the site into docs/ for GitHub Pages
+supabase/setup.sql        database, access rules and file storage for server mode
 docs/                     the published site (generated — don't edit by hand)
 ```

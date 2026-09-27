@@ -117,7 +117,8 @@ export default function Assignments() {
     try {
       const saved = [];
       for (const f of files) saved.push(await saveFile(f));
-      submitWork(open.id, { files: saved, comment: comment.trim() });
+      const ok = await submitWork(open.id, { files: saved, comment: comment.trim() });
+      if (ok === false) return;
       toast(t('assignments.submitted', { title: tr(open.title) }));
       setOpenId(null);
     } catch {
@@ -127,9 +128,10 @@ export default function Assignments() {
     }
   };
 
-  const saveGrade = () => {
+  const saveGrade = async () => {
     if (!grade) return;
-    gradeSubmission(open, { grade, feedback: feedback.trim() });
+    const ok = await gradeSubmission(open, { grade, feedback: feedback.trim() });
+    if (ok === false) return;
     toast(t('submit.graded', { grade, title: tr(open.title) }));
     setOpenId(null);
   };
@@ -298,7 +300,7 @@ export default function Assignments() {
             {sub && (
               <div className="submission-box">
                 <div className="submission-head">
-                  <strong>{isTeacher ? t('submit.fromStudent', { name: 'Alex Morgan', cls: '9-A' }) : t('submit.yourWork')}</strong>
+                  <strong>{isTeacher ? t('submit.fromStudent', { name: sub.studentName || 'Alex Morgan', cls: '9-A' }) : t('submit.yourWork')}</strong>
                   <span className="person-sub num">
                     {t('submit.sentAt', { date: fmtDate(new Date(sub.at), { day: 'numeric', month: 'long' }), time: new Date(sub.at).toTimeString().slice(0, 5) })}
                   </span>

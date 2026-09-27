@@ -1,10 +1,20 @@
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiCompass } from 'react-icons/fi';
+import { FullPageLoader } from '../components/AuthScreens.jsx';
 import Logo from '../components/Logo.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 
+/** Links from Supabase emails come back as "#access_token=…" or "#error=…"; with hash routing they land here. */
+function emailLinkState() {
+  const h = typeof window === 'undefined' ? '' : window.location.hash;
+  if (/access_token=/.test(h)) return 'signing-in';
+  return null;
+}
+
 export default function NotFound({ inApp }) {
   const { t } = useI18n();
+  const link = emailLinkState();
+  if (link === 'signing-in') return <FullPageLoader />;
   const body = (
     <div className="notfound-body">
       <div className="empty-icon">

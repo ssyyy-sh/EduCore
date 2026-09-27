@@ -20,6 +20,9 @@ import {
 } from '../data/mock.js';
 import { readJSON, writeJSON } from '../lib/storage.js';
 import { useAuth } from './AuthContext.jsx';
+import { useI18n } from '../i18n/I18nContext.jsx';
+import { REMOTE } from '../lib/supabase.js';
+import { loadAll, api, subscribe } from '../lib/remoteData.js';
 
 /*
  * Theme, toasts and the demo's shared school data. Changes people make
@@ -101,15 +104,18 @@ export function AppProvider({ children }) {
   const role = isOwner ? viewAs : user?.role ?? null;
   const [theme, setThemeState] = useState(readTheme);
   const [toasts, setToasts] = useState([]);
-  const [data, setData] = useState(loadData);
+  const [data, setData] = useState(() => (REMOTE ? { ...EMPTY } : loadData()));
+  const [ready, setReady] = useState(!REMOTE);
+  const { t: tt } = useI18n();
   const idRef = useRef(0);
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // Demo mode keeps data in this browser; server mode keeps it in Supabase (changes are shown at once, then saved).
   const update = useCallback((fn) => {
     setData((prev) => {
       const next = fn(prev);
-      writeJSON(DATA_KEY, next);
+      if (!REMOTE) writeJSON(DATA_KEY, next);
       return next;
     });
   }, []);
@@ -134,6 +140,88 @@ export function AppProvider({ children }) {
     setToasts((t) => [...t, { id, message }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3400);
   }, []);
+
+  // ----- server sync -----
+  const pendingWrites = useRef(0);
+  const reloadTimer = useRef(null);
+  const uidRef = useRef(null);
+  const serverScope = useMemo(() => {
+    if (!user || user.role === 'pending') return null;
+    const classes = user.role === 'teacher' ? TEACHER_CLASSES.map((c) => c.name) : user.role === 'student' ? ['9-A'] : user.role === 'parent' ? CHILDREN.map((c) => c.className) : [];
+    return { uid: user.id, role: user.role, myClasses: classes };
+  }, [user]);
+  const scopeRef = useRef(serverScope);
+  scopeRef.current = serverScope;
+
+  const reload = useCallback(async () => {
+    const scope = scopeRef.current;
+    if (!REMOTE || !scope) return;
+    if (pendingWrites.current > 0) return; // a save is in progress; reload after it
+    try {
+      const next = await loadAll(scope);
+      if (scopeRef.current?.uid !== scope.uid || pendingWrites.current > 0) return;
+      setData(next);
+    } catch (e) {
+      console.warn('[educore] load failed', e);
+    } finally {
+      if (scopeRef.current?.uid === scope.uid) setReady(true);
+    }
+  }, []);
+  const scheduleReload = useCallback(
+    (ms = 600) => {
+      clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(reload, ms);
+    },
+    [reload]
+  );
+
+  const scopeKey = serverScope ? `${serverScope.uid}|${serverScope.role}` : '';
+  useEffect(() => {
+    if (!REMOTE) return undefined;
+    if (!scopeKey) {
+      uidRef.current = null;
+      setData({ ...EMPTY });
+      setReady(true);
+      return undefined;
+    }
+    if (uidRef.current !== scopeKey) {
+      uidRef.current = scopeKey;
+      setReady(false);
+      setData({ ...EMPTY });
+    }
+    reload();
+    const unsubscribe = subscribe(() => scheduleReload());
+    const onVisible = () => document.visibilityState === 'visible' && scheduleReload(100);
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(() => scheduleReload(0), 60000);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+      clearTimeout(reloadTimer.current);
+    };
+  }, [scopeKey, reload, scheduleReload]);
+
+  /** Save a change on the server. If it fails, the data is reloaded so the screen shows what is really saved. */
+  const sync = useCallback(
+    (fn) => {
+      if (!REMOTE) return Promise.resolve(true);
+      pendingWrites.current += 1;
+      return Promise.resolve()
+        .then(fn)
+        .then(() => true)
+        .catch((e) => {
+          console.warn('[educore] save failed', e);
+          toast(tt('sync.error'));
+          return false;
+        })
+        .finally(() => {
+          pendingWrites.current -= 1;
+          scheduleReload(300);
+        });
+    },
+    [toast, tt, scheduleReload]
+  );
 
   // ----- who am I (demo mapping) -----
   // Student accounts see Alex; parent accounts see the three Morgan children; teachers see Mr. Hayes' classes.
@@ -281,7 +369,7 @@ export function AppProvider({ children }) {
         if (s.grade) continue;
         const a = assignments.find((x) => x.id === aid);
         if (!a) continue;
-        out.push({ id: `sub-${aid}-${s.at}`, type: 'assignment', title: L('New submission', 'Новая сданная работа', 'Yangi topshirilgan ish'), text: compose({ en: 'Alex Morgan · {t}', ru: 'Alex Morgan · {t}', uz: 'Alex Morgan · {t}' }, { t: a.title }), at: new Date(s.at), unread: true });
+        out.push({ id: `sub-${aid}-${s.at}`, type: 'assignment', title: L('New submission', 'Новая сданная работа', 'Yangi topshirilgan ish'), text: compose({ en: '{n} · {t}', ru: '{n} · {t}', uz: '{n} · {t}' }, { n: s.studentName || 'Alex Morgan', t: a.title }), at: new Date(s.at), unread: true });
       }
     }
     return out;
@@ -305,66 +393,115 @@ export function AppProvider({ children }) {
 
   // ----- actions -----
   const actions = useMemo(() => {
-    const logGrade = (d, entry) => ({ ...d, gradeLog: [{ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, at: new Date().toISOString(), ...entry }, ...d.gradeLog].slice(0, 200) });
+    const uid = user?.id;
+    const newId = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const logEntry = (entry) => ({ id: newId('g'), at: new Date().toISOString(), ...entry });
+    const addLog = (d, entry) => ({ ...d, gradeLog: [entry, ...d.gradeLog].slice(0, 200) });
     const setMarkIn = (d, cls, studentId, colId, grade) => {
       const g = d.gradebook[cls] || { columns: [], removed: [], marks: {} };
-      const marks = { ...g.marks, [studentId]: { ...(g.marks[studentId] || {}), [colId]: grade } };
+      const marks = { ...(g.marks || {}), [studentId]: { ...((g.marks || {})[studentId] || {}), [colId]: grade } };
       return { ...d, gradebook: { ...d.gradebook, [cls]: { ...g, marks } } };
     };
+    const gbOf = (d, cls) => d.gradebook[cls] || { columns: [], removed: [], marks: {} };
     return {
       submitAssignment: (id) => update((d) => ({ ...d, submitted: d.submitted.includes(id) ? d.submitted : [...d.submitted, id] })),
-      submitWork: (assignmentId, { files, comment }) =>
-        update((d) => ({
-          ...d,
-          submissions: { ...d.submissions, [assignmentId]: { studentId: DEMO_STUDENT_IDS.alex, files, comment, at: new Date().toISOString(), grade: null, feedback: '' } },
-        })),
-      gradeSubmission: (assignment, { grade, feedback }) =>
+      submitWork: (assignmentId, { files, comment }) => {
+        const sub = { studentId: DEMO_STUDENT_IDS.alex, studentName: user?.name, files, comment, at: new Date().toISOString(), grade: null, feedback: '' };
+        update((d) => ({ ...d, submissions: { ...d.submissions, [assignmentId]: sub } }));
+        return sync(() => api.submitWork({ assignmentId, studentId: sub.studentId, studentName: sub.studentName, files, comment }));
+      },
+      gradeSubmission: (assignment, { grade, feedback }) => {
+        const d0 = dataRef.current;
+        const sub = d0.submissions[assignment.id];
+        if (!sub) return Promise.resolve(false);
+        const cls = assignment.cls || '9-A';
+        const existing = (gbOf(d0, cls).columns || []).find((c) => c.fromAssignment === assignment.id);
+        const title = typeof assignment.title === 'object' ? assignment.title.en : assignment.title;
+        const column = existing ? null : { id: `a-${assignment.id}`, title, titleL: assignment.title, date: new Date().toISOString(), type: assignment.type, fromAssignment: assignment.id };
+        const log = logEntry({ studentId: sub.studentId, subject: assignment.subject, work: assignment.title, grade });
         update((d) => {
-          const sub = d.submissions[assignment.id];
-          if (!sub) return d;
-          const cls = assignment.cls || '9-A';
           let next = { ...d, submissions: { ...d.submissions, [assignment.id]: { ...sub, grade, feedback, gradedAt: new Date().toISOString() } } };
-          // Put the mark into the class gradebook under a column named after the assignment.
-          const g = next.gradebook[cls] || { columns: [], removed: [], marks: {} };
-          let col = (g.columns || []).find((c) => c.fromAssignment === assignment.id);
-          if (!col) {
-            const title = typeof assignment.title === 'object' ? assignment.title.en : assignment.title;
-            col = { id: `a-${assignment.id}`, title, titleL: assignment.title, date: new Date().toISOString(), type: assignment.type, fromAssignment: assignment.id };
-            next = { ...next, gradebook: { ...next.gradebook, [cls]: { ...g, columns: [...(g.columns || []), col] } } };
+          if (column) {
+            const g = gbOf(next, cls);
+            next = { ...next, gradebook: { ...next.gradebook, [cls]: { ...g, columns: [...(g.columns || []), column] } } };
           }
-          next = setMarkIn(next, cls, sub.studentId, col.id, grade);
-          return logGrade(next, { studentId: sub.studentId, subject: assignment.subject, work: assignment.title, grade });
-        }),
-      addAssignment: (a) => update((d) => ({ ...d, newAssignments: [{ ...a, id: `n-${Date.now()}`, due: a.due.toISOString() }, ...d.newAssignments] })),
+          next = setMarkIn(next, cls, sub.studentId, `a-${assignment.id}`, grade);
+          return addLog(next, log);
+        });
+        return sync(() =>
+          api.gradeSubmission({ assignmentId: assignment.id, studentId: sub.studentId, grade, feedback, cls, column, log: { id: log.id, student_id: log.studentId, subject: log.subject, work: log.work, grade, at: log.at } })
+        );
+      },
+      addAssignment: (a) => {
+        const row = { ...a, id: newId('n'), due: a.due.toISOString() };
+        update((d) => ({ ...d, newAssignments: [row, ...d.newAssignments] }));
+        return sync(() => api.addAssignment(row));
+      },
       // Gradebook
-      setMark: (cls, student, col, grade, subject) =>
+      setMark: (cls, student, col, grade, subject) => {
+        const log = grade ? logEntry({ studentId: student.id, subject, work: col.titleL || col.title, grade }) : null;
         update((d) => {
           const next = setMarkIn(d, cls, student.id, col.id, grade);
-          return grade ? logGrade(next, { studentId: student.id, subject, work: col.titleL || col.title, grade }) : next;
-        }),
-      addColumn: (cls, col) =>
+          return log ? addLog(next, log) : next;
+        });
+        return sync(() =>
+          api.setMark({ cls, studentId: student.id, columnId: col.id, grade, log: log && { id: log.id, student_id: log.studentId, subject: log.subject, work: log.work, grade, at: log.at } })
+        );
+      },
+      addColumn: (cls, col) => {
+        const column = { ...col, id: newId('u'), date: col.date.toISOString() };
         update((d) => {
-          const g = d.gradebook[cls] || { columns: [], removed: [], marks: {} };
-          return { ...d, gradebook: { ...d.gradebook, [cls]: { ...g, columns: [...(g.columns || []), { ...col, id: `u-${Date.now()}`, date: col.date.toISOString() }] } } };
-        }),
-      removeColumn: (cls, colId) =>
+          const g = gbOf(d, cls);
+          return { ...d, gradebook: { ...d.gradebook, [cls]: { ...g, columns: [...(g.columns || []), column] } } };
+        });
+        return sync(() => api.addColumn({ cls, col: column }));
+      },
+      removeColumn: (cls, colId) => {
         update((d) => {
-          const g = d.gradebook[cls] || { columns: [], removed: [], marks: {} };
+          const g = gbOf(d, cls);
           return { ...d, gradebook: { ...d.gradebook, [cls]: { ...g, removed: [...new Set([...(g.removed || []), colId])] } } };
-        }),
+        });
+        return sync(() => api.removeColumn({ cls, colId, isSeed: GRADEBOOK_SEED.some((c) => c.id === colId) }));
+      },
       // Attendance: map of studentId → status for one class and day
-      saveAttendanceDay: (iso, cls, map) => update((d) => ({ ...d, attendance: { ...d.attendance, [`${iso}|${cls}`]: { ...(d.attendance[`${iso}|${cls}`] || {}), ...map } } })),
-      saveAttendance: (key, map) => update((d) => ({ ...d, attendance: { ...d.attendance, [key]: { ...(d.attendance[key] || {}), ...map } } })),
+      saveAttendanceDay: (iso, cls, map) => {
+        update((d) => ({ ...d, attendance: { ...d.attendance, [`${iso}|${cls}`]: { ...(d.attendance[`${iso}|${cls}`] || {}), ...map } } }));
+        return sync(() => api.saveAttendance({ iso, cls, map }));
+      },
+      saveAttendance: (key, map) => {
+        const [iso, cls] = key.split('|');
+        update((d) => ({ ...d, attendance: { ...d.attendance, [key]: { ...(d.attendance[key] || {}), ...map } } }));
+        return sync(() => api.saveAttendance({ iso, cls, map }));
+      },
       // Messages & notifications
-      markNotificationRead: (id) => update((d) => addRead(d, 'readNotifications', user?.id, [id])),
-      markAllNotificationsRead: (ids) => update((d) => addRead(d, 'readNotifications', user?.id, ids || NOTIFICATIONS.map((n) => n.id))),
-      markMessageRead: (id) => update((d) => addRead(d, 'readMessages', user?.id, [id])),
-      sendMessage: ({ to, role: r, subject, body }) =>
-        update((d) => ({ ...d, sentMessages: [{ id: `sent-${Date.now()}`, owner: user?.id, from: to, role: r || 'School', subject, body, at: new Date().toISOString() }, ...d.sentMessages] })),
+      markNotificationRead: (id) => {
+        update((d) => addRead(d, 'readNotifications', uid, [id]));
+        return sync(() => api.markRead({ uid, kind: 'n', ids: [id] }));
+      },
+      markAllNotificationsRead: (ids) => {
+        const list = ids || NOTIFICATIONS.map((n) => n.id);
+        update((d) => addRead(d, 'readNotifications', uid, list));
+        return sync(() => api.markRead({ uid, kind: 'n', ids: list }));
+      },
+      markMessageRead: (id) => {
+        update((d) => addRead(d, 'readMessages', uid, [id]));
+        return sync(() => api.markRead({ uid, kind: 'm', ids: [id] }));
+      },
+      sendMessage: ({ to, role: r, subject, body }) => {
+        const m = { id: newId('sent'), owner: uid, from: to, role: r || 'School', subject, body, at: new Date().toISOString() };
+        update((d) => ({ ...d, sentMessages: [m, ...d.sentMessages] }));
+        return sync(() => api.sendMessage(m));
+      },
       // Announcements
-      addAnnouncement: ({ title, body, audience }) =>
-        update((d) => ({ ...d, announcements: [{ id: `u-${Date.now()}`, title, body, audience, author: user?.name, at: new Date().toISOString() }, ...d.announcements] })),
-      removeAnnouncement: (id) => update((d) => ({ ...d, announcements: d.announcements.filter((a) => a.id !== id) })),
+      addAnnouncement: ({ title, body, audience }) => {
+        const a = { id: newId('u'), title, body, audience, author: user?.name, authorId: uid, at: new Date().toISOString() };
+        update((d) => ({ ...d, announcements: [a, ...d.announcements] }));
+        return sync(() => api.addAnnouncement(a));
+      },
+      removeAnnouncement: (id) => {
+        update((d) => ({ ...d, announcements: d.announcements.filter((a) => a.id !== id) }));
+        return sync(() => api.removeAnnouncement(id));
+      },
       // Students
       addStudent: (s) => {
         const d = dataRef.current;
@@ -372,7 +509,7 @@ export function AppProvider({ children }) {
         if (total >= ORG.capacity) return { ok: false, error: 'full' };
         const n = total + 1;
         const student = {
-          id: `NB-${String(24000 + n).padStart(5, '0')}`,
+          id: REMOTE ? `NB-${String(24000 + n).padStart(5, '0')}-${Math.random().toString(36).slice(2, 5)}` : `NB-${String(24000 + n).padStart(5, '0')}`,
           name: s.name,
           email: '',
           guardianEmail: s.email || '',
@@ -386,30 +523,53 @@ export function AppProvider({ children }) {
           isNew: true,
         };
         update((prev) => ({ ...prev, addedStudents: [student, ...prev.addedStudents] }));
+        sync(() => api.addStudent(student));
         return { ok: true, student };
       },
-      archiveStudent: (id) => update((d) => ({ ...d, archived: d.archived.includes(id) ? d.archived : [...d.archived, id] })),
-      moveStudent: (id, cls) => update((d) => ({ ...d, moves: { ...d.moves, [id]: cls } })),
+      archiveStudent: (id) => {
+        update((d) => ({ ...d, archived: d.archived.includes(id) ? d.archived : [...d.archived, id] }));
+        return sync(() => api.archiveStudent(id));
+      },
+      moveStudent: (id, cls) => {
+        update((d) => ({ ...d, moves: { ...d.moves, [id]: cls } }));
+        return sync(() => api.moveStudent(id, cls));
+      },
       // Teachers & classes
       addTeacher: (t) => {
-        const teacher = { id: `tu-${Date.now()}`, name: t.name, email: t.email, subject: t.subject, classes: t.classes || [], status: 'Active', isNew: true };
+        const teacher = { id: newId('tu'), name: t.name, email: t.email, subject: t.subject, classes: t.classes || [], status: 'Active', isNew: true };
         update((d) => ({ ...d, addedTeachers: [teacher, ...d.addedTeachers] }));
+        sync(() => api.addTeacher(teacher));
         return teacher;
       },
-      editTeacher: (id, patch) => update((d) => ({ ...d, teacherEdits: { ...d.teacherEdits, [id]: { ...(d.teacherEdits[id] || {}), ...patch } } })),
-      setTutor: (cls, teacherId) => update((d) => ({ ...d, tutors: { ...d.tutors, [cls]: teacherId } })),
-      resetData: () => update(() => ({ ...EMPTY })),
-      setPref: (type, on) =>
-        update((d) => {
-          if (!user) return d;
-          return { ...d, prefs: { ...d.prefs, [user.id]: { ...(d.prefs[user.id] || {}), [type]: on } } };
-        }),
+      editTeacher: (id, patch) => {
+        const merged = { ...(dataRef.current.teacherEdits[id] || {}), ...patch };
+        update((d) => ({ ...d, teacherEdits: { ...d.teacherEdits, [id]: merged } }));
+        return sync(() => api.editTeacher(id, merged));
+      },
+      setTutor: (cls, teacherId) => {
+        update((d) => ({ ...d, tutors: { ...d.tutors, [cls]: teacherId } }));
+        return sync(() => api.setTutor(cls, teacherId));
+      },
+      resetData: () => {
+        update(() => ({ ...EMPTY }));
+        return sync(() => api.resetAll());
+      },
+      backupData: () => (REMOTE ? api.backup() : Promise.resolve(null)),
+      setPref: (type, on) => {
+        if (!uid) return Promise.resolve(false);
+        const merged = { ...(dataRef.current.prefs[uid] || {}), [type]: on };
+        update((d) => ({ ...d, prefs: { ...d.prefs, [uid]: merged } }));
+        return sync(() => api.setPrefs(uid, merged));
+      },
     };
-  }, [update, user]);
+  }, [update, user, sync]);
 
   const value = useMemo(
     () => ({
       role,
+      ready,
+      remote: REMOTE,
+      reload,
       isOwner,
       viewAs,
       setViewAs,
@@ -437,7 +597,7 @@ export function AppProvider({ children }) {
       isoDay,
       ...actions,
     }),
-    [role, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
+    [role, ready, reload, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiBookOpen, FiUser, FiUsers, FiBriefcase, FiKey, FiArrowRight, FiMoreHorizontal, FiTrash2, FiRefreshCw, FiDownload, FiCopy, FiAlertTriangle } from 'react-icons/fi';
+import { FiBookOpen, FiUser, FiUsers, FiBriefcase, FiKey, FiArrowRight, FiMoreHorizontal, FiTrash2, FiRefreshCw, FiDownload, FiCopy, FiAlertTriangle, FiLock, FiUnlock, FiMail, FiClock } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Avatar, SearchInput, Select, Menu, Modal, EmptyState } from '../components/ui/index.jsx';
@@ -21,8 +21,8 @@ function newPassword() {
 }
 
 export default function Owner() {
-  const { setViewAs, resetData, toast } = useApp();
-  const { user, allAccounts, setAccountRole, resetPassword, deleteAccount } = useAuth();
+  const { setViewAs, resetData, backupData, toast } = useApp();
+  const { user, remote, allAccounts, setAccountRole, resetPassword, deleteAccount, blockAccount } = useAuth();
   const { t, fmtDate } = useI18n();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
@@ -30,7 +30,8 @@ export default function Owner() {
   const [shown, setShown] = useState(null); // { name, email, password }
   const [confirm, setConfirm] = useState(null); // { type: 'delete' | 'reset', account? }
 
-  const counts = useMemo(() => Object.fromEntries(ROLES.map((r) => [r, allAccounts.filter((a) => a.role === r).length])), [allAccounts]);
+  const counts = useMemo(() => Object.fromEntries([...ROLES, 'pending'].map((r) => [r, allAccounts.filter((a) => a.role === r).length])), [allAccounts]);
+  const roleOptions = remote ? [...ROLES, 'pending'] : ROLES;
   const rows = useMemo(() => {
     const n = q.trim().toLowerCase();
     return allAccounts
@@ -43,21 +44,35 @@ export default function Owner() {
     navigate(`/app/${r}`);
   };
 
-  const doResetPassword = (a) => {
+  const doResetPassword = async (a) => {
+    if (remote) {
+      const res = await resetPassword(a.id);
+      toast(res.ok ? t('owner.resetEmailSent', { email: a.email }) : t('sync.error'));
+      return;
+    }
     const password = newPassword();
     resetPassword(a.id, password);
     setShown({ name: a.name, email: a.email, password });
   };
 
-  const exportBackup = () => {
-    const out = {};
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k.startsWith('educore.') && k !== 'educore.accounts.v1') out[k] = JSON.parse(localStorage.getItem(k));
+  const exportBackup = async () => {
+    let out = {};
+    if (remote) {
+      try {
+        out = await backupData();
+      } catch {
+        toast(t('sync.error'));
+        return;
       }
-    } catch {
-      /* storage unavailable */
+    } else {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k.startsWith('educore.') && k !== 'educore.accounts.v1' && k !== 'educore.auth') out[k] = JSON.parse(localStorage.getItem(k));
+        }
+      } catch {
+        /* storage unavailable */
+      }
     }
     const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), data: out }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -107,6 +122,12 @@ export default function Owner() {
         </div>
       </section>
 
+      {remote && counts.pending > 0 && (
+        <button type="button" className="pending-banner" onClick={() => setRoleFilter('pending')}>
+          <FiClock aria-hidden="true" /> {t('owner.pendingBanner', { n: counts.pending })}
+        </button>
+      )}
+
       <div className="stats-grid">
         {ROLES.map((r) => (
           <StatsCard key={r} icon={ICONS[r]} label={t(`owner.accounts.${r}`)} value={counts[r]} />
@@ -117,13 +138,13 @@ export default function Owner() {
         <div className="panel-head">
           <div>
             <h3>{t('owner.accountsTitle')}</h3>
-            <p>{t('owner.accountsSub')}</p>
+            <p>{remote ? t('owner.accountsSubRemote') : t('owner.accountsSub')}</p>
           </div>
         </div>
         <div className="toolbar">
           <SearchInput value={q} onChange={setQ} placeholder={t('owner.search')} id="owner-search" style={{ flex: '1 1 240px', maxWidth: 320 }} />
           <div className="toolbar-filters">
-            <Select label={t('owner.role')} value={roleFilter} allLabel={t('common.all')} options={ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))} onChange={setRoleFilter} align="right" />
+            <Select label={t('owner.role')} value={roleFilter} allLabel={t('common.all')} options={roleOptions.map((r) => ({ value: r, label: t(`roles.${r}`) }))} onChange={setRoleFilter} align="right" />
           </div>
         </div>
         {rows.length === 0 ? (
@@ -143,7 +164,7 @@ export default function Owner() {
               </thead>
               <tbody>
                 {rows.map((a) => {
-                  const locked = a.role === 'owner' || a.demo;
+                  const locked = a.role === 'owner' || a.demo || a.id === user.id;
                   return (
                     <tr key={a.id}>
                       <td data-label={t('table.name')}>
@@ -154,6 +175,8 @@ export default function Owner() {
                               {a.name}
                               {a.id === user.id && <span className="badge badge-accent badge-inline">{t('owner.you')}</span>}
                               {a.demo && <span className="badge badge-inline">{t('owner.demo')}</span>}
+                              {a.disabled && <span className="badge badge-danger badge-inline">{t('owner.blocked')}</span>}
+                              {a.role === 'pending' && a.requested_role && <span className="badge badge-warning badge-inline">{t('owner.wants', { role: t(`roles.${a.requested_role}`) })}</span>}
                             </span>
                             <span className="person-sub">{a.email}</span>
                           </span>
@@ -167,12 +190,13 @@ export default function Owner() {
                             className="input select-native select-sm"
                             aria-label={t('owner.changeRole', { name: a.name })}
                             value={a.role}
-                            onChange={(e) => {
-                              setAccountRole(a.id, e.target.value);
-                              toast(t('owner.roleChanged', { name: a.name, role: t(`roles.${e.target.value}`) }));
+                            onChange={async (e) => {
+                              const r = e.target.value;
+                              const ok = await setAccountRole(a.id, r);
+                              toast(ok ? t('owner.roleChanged', { name: a.name, role: t(`roles.${r}`) }) : t('sync.error'));
                             }}
                           >
-                            {ROLES.map((r) => (
+                            {roleOptions.map((r) => (
                               <option key={r} value={r}>
                                 {t(`roles.${r}`)}
                               </option>
@@ -184,14 +208,24 @@ export default function Owner() {
                         {a.createdAt ? fmtDate(new Date(a.createdAt), { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td className="right">
-                        {a.role !== 'owner' && (
+                        {a.role !== 'owner' && a.id !== user.id && (
                           <Menu
                             trigger={<FiMoreHorizontal />}
                             label={t('table.actionsFor', { name: a.name })}
-                            items={[
-                              { label: t('owner.resetPassword'), icon: FiRefreshCw, onClick: () => doResetPassword(a) },
-                              ...(a.demo ? [] : ['sep', { label: t('owner.delete'), icon: FiTrash2, danger: true, onClick: () => setConfirm({ type: 'delete', account: a }) }]),
-                            ]}
+                            items={
+                              remote
+                                ? [
+                                    { label: t('owner.sendReset'), icon: FiMail, onClick: () => doResetPassword(a) },
+                                    'sep',
+                                    a.disabled
+                                      ? { label: t('owner.unblock'), icon: FiUnlock, onClick: async () => toast((await blockAccount(a.id, false)) ? t('owner.unblocked', { name: a.name }) : t('sync.error')) }
+                                      : { label: t('owner.block'), icon: FiLock, danger: true, onClick: () => setConfirm({ type: 'block', account: a }) },
+                                  ]
+                                : [
+                                    { label: t('owner.resetPassword'), icon: FiRefreshCw, onClick: () => doResetPassword(a) },
+                                    ...(a.demo ? [] : ['sep', { label: t('owner.delete'), icon: FiTrash2, danger: true, onClick: () => setConfirm({ type: 'delete', account: a }) }]),
+                                  ]
+                            }
                           />
                         )}
                       </td>
@@ -208,7 +242,7 @@ export default function Owner() {
         <div className="panel-head">
           <div>
             <h3>{t('owner.dataTitle')}</h3>
-            <p>{t('owner.dataSub')}</p>
+            <p>{remote ? t('owner.dataSubRemote') : t('owner.dataSub')}</p>
           </div>
         </div>
         <div className="panel-body">
@@ -227,9 +261,9 @@ export default function Owner() {
             <li>
               <div>
                 <strong>
-                  <FiAlertTriangle aria-hidden="true" /> {t('owner.reset')}
+                  <FiAlertTriangle aria-hidden="true" /> {remote ? t('owner.resetRemote') : t('owner.reset')}
                 </strong>
-                <span>{t('owner.resetText')}</span>
+                <span>{remote ? t('owner.resetTextRemote') : t('owner.resetText')}</span>
               </div>
               <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirm({ type: 'reset' })}>
                 {t('owner.resetBtn')}
@@ -237,7 +271,7 @@ export default function Owner() {
             </li>
           </ul>
           <p className="hint hint-box">
-            <FiKey aria-hidden="true" /> {t('owner.passwordHint')}
+            <FiKey aria-hidden="true" /> {remote ? t('owner.remoteHint') : t('owner.passwordHint')}
           </p>
         </div>
       </section>
@@ -279,8 +313,10 @@ export default function Owner() {
       <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
-        title={confirm?.type === 'reset' ? t('owner.resetTitle') : t('owner.deleteTitle')}
-        description={confirm?.type === 'reset' ? t('owner.resetConfirm') : confirm ? t('owner.deleteText', { name: confirm.account.name }) : ''}
+        title={confirm?.type === 'reset' ? (remote ? `${t('owner.resetRemote')}?` : t('owner.resetTitle')) : confirm?.type === 'block' ? t('owner.blockTitle') : t('owner.deleteTitle')}
+        description={
+          confirm?.type === 'reset' ? (remote ? t('owner.resetConfirmRemote') : t('owner.resetConfirm')) : confirm?.type === 'block' ? t('owner.blockText', { name: confirm.account.name }) : confirm ? t('owner.deleteText', { name: confirm.account.name }) : ''
+        }
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setConfirm(null)}>
@@ -291,9 +327,12 @@ export default function Owner() {
               className="btn btn-danger"
               onClick={async () => {
                 if (confirm.type === 'reset') {
-                  resetData();
+                  const ok = await resetData();
                   await clearFiles();
-                  toast(t('owner.resetDone'));
+                  if (ok) toast(t('owner.resetDone'));
+                } else if (confirm.type === 'block') {
+                  const ok = await blockAccount(confirm.account.id, true);
+                  toast(ok ? t('owner.blockedToast', { name: confirm.account.name }) : t('sync.error'));
                 } else {
                   deleteAccount(confirm.account.id);
                   toast(t('owner.deleted', { name: confirm.account.name }));
@@ -301,7 +340,7 @@ export default function Owner() {
                 setConfirm(null);
               }}
             >
-              {confirm?.type === 'reset' ? t('owner.resetBtn') : t('owner.delete')}
+              {confirm?.type === 'reset' ? t('owner.resetBtn') : confirm?.type === 'block' ? t('owner.block') : t('owner.delete')}
             </button>
           </>
         }
