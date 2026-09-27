@@ -1,0 +1,83 @@
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation, NavLink, Link } from 'react-router-dom';
+import { FiMoreHorizontal, FiLock } from 'react-icons/fi';
+import Sidebar from '../components/dashboard/Sidebar.jsx';
+import DashboardHeader from '../components/dashboard/DashboardHeader.jsx';
+import { NAV } from '../components/dashboard/nav.js';
+import { useApp } from '../context/AppContext.jsx';
+import { useI18n } from '../i18n/I18nContext.jsx';
+import { canAccess, homeFor, ACCESS } from '../lib/access.js';
+import { EmptyState } from '../components/ui/index.jsx';
+import { readJSON, writeJSON } from '../lib/storage.js';
+
+function MobileTabBar({ onMore }) {
+  const { role } = useApp();
+  const { t } = useI18n();
+  const items = [...NAV[role].main.slice(0, 3), NAV[role].comms[0]];
+  return (
+    <nav className="tabbar" aria-label={t('nav.mobileNav')}>
+      {items.map((it) => (
+        <NavLink key={it.key} to={it.to} end className={({ isActive }) => `tabbar-item ${isActive ? 'is-active' : ''}`}>
+          <it.icon aria-hidden="true" />
+          <span>{t(`nav.${it.key}`)}</span>
+        </NavLink>
+      ))}
+      <button type="button" className="tabbar-item" onClick={onMore}>
+        <FiMoreHorizontal aria-hidden="true" />
+        <span>{t('nav.more')}</span>
+      </button>
+    </nav>
+  );
+}
+
+function NoAccess({ role }) {
+  const { t } = useI18n();
+  return (
+    <div className="page">
+      <section className="panel">
+        <EmptyState
+          icon={FiLock}
+          title={t('noAccess.title')}
+          text={t('noAccess.text')}
+          action={
+            <Link to={homeFor(role)} className="btn btn-primary btn-sm">
+              {t('noAccess.back')}
+            </Link>
+          }
+        />
+      </section>
+    </div>
+  );
+}
+
+export default function AppLayout() {
+  const { pathname } = useLocation();
+  const { role } = useApp();
+  const [collapsed, setCollapsed] = useState(() => readJSON('educore.sidebar', false) === true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  const toggle = () =>
+    setCollapsed((c) => {
+      writeJSON('educore.sidebar', !c);
+      return !c;
+    });
+
+  const page = pathname.split('/')[2] || '';
+  const known = page in ACCESS;
+  const allowed = !known || canAccess(role, page);
+
+  return (
+    <div className={`app ${collapsed ? 'is-collapsed' : ''}`}>
+      <Sidebar collapsed={collapsed} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <div className="app-main">
+        <DashboardHeader onOpenMobile={() => setMobileOpen(true)} />
+        <main className="app-content" key={pathname}>
+          {allowed ? <Outlet /> : <NoAccess role={role} />}
+        </main>
+      </div>
+      <MobileTabBar onMore={() => setMobileOpen(true)} />
+    </div>
+  );
+}

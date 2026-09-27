@@ -1,0 +1,176 @@
+/* ==========================================================
+   EduCore design tokens
+   Accent: "Chalkboard" — a deep, calm green taken from the
+   classroom itself. Neutrals carry a slight green-grey bias.
+   ========================================================== */
+:root {
+  /* Neutrals */
+  --bg: #f7f8f7;
+  --bg-subtle: #f1f3f2;
+  --surface: #ffffff;
+  --surface-2: #fafbfa;
+  --border: #e3e7e5;
+  --border-strong: #d2d8d5;
+  --text: #0f1513;
+  --text-2: #3d4744;
+  --muted: #69736f;
+  --faint: #98a19d;
+
+  /* Accent */
+  --accent: #0f6e56;
+  --accent-hover: #0b5c47;
+  --accent-soft: #e6f2ee;
+  --accent-softer: #f2f8f6;
+  --accent-contrast: #ffffff;
+  --accent-ring: rgba(15, 110, 86, 0.28);
+
+  /* Semantic */
+  --success: #15803d;
+  --success-soft: #e9f6ee;
+  --warning: #b45309;
+  --warning-soft: #fdf3e6;
+  --danger: #c2410c;
+  --danger-soft: #fdeee7;
+  --info: #1d5fb8;
+  --info-soft: #e9f1fb;
+
+  /* Chart */
+  --chart-1: #0f6e56;
+  --chart-2: #8fbcae;
+  --chart-3: #c7d9d2;
+  --chart-grid: #eceeed;
+  --chart-axis: #98a19d;
+
+  /* Type */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-11: 0.6875rem;
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-15: 0.9375rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-30: 1.875rem;
+  --fs-40: 2.5rem;
+  --fs-52: 3.25rem;
+
+  /* Radius — small and moderate only */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(15, 21, 19, 0.05);
+  --shadow-sm: 0 1px 2px rgba(15, 21, 19, 0.04), 0 2px 6px rgba(15, 21, 19, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 21, 19, 0.06), 0 1px 3px rgba(15, 21, 19, 0.05);
+  --shadow-lg: 0 18px 48px rgba(15, 21, 19, 0.1), 0 2px 8px rgba(15, 21, 19, 0.05);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 140ms;
+  --t: 220ms;
+  --t-slow: 420ms;
+
+  /* Layout */
+  --container: 1200px;
+  --sidebar-w: 248px;
+  --header-h: 60px;
+
+  /* Inverted band (security section) */
+  --band-bg: #0f1513;
+  --band-surface: #161e1b;
+  --band-border: #26302c;
+  --band-text: #eef2f0;
+  --band-muted: #95a19c;
+  --band-accent: #5ccfa6;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0c0f0e;
+    --bg-subtle: #111514;
+    --surface: #141918;
+    --surface-2: #181e1c;
+    --border: #252d2a;
+    --border-strong: #323c38;
+    --text: #eef2f0;
+    --text-2: #c3cbc7;
+    --muted: #8d9894;
+    --faint: #66706c;
+    --accent: #3fbf94;
+    --accent-hover: #5ccfa6;
+    --accent-soft: #15302a;
+    --accent-softer: #111f1b;
+    --accent-contrast: #06140f;
+    --accent-ring: rgba(63, 191, 148, 0.32);
+    --success: #4ade80;
+    --success-soft: #13291d;
+    --warning: #f0a54a;
+    --warning-soft: #2e2210;
+    --danger: #f58a5d;
+    --danger-soft: #311a12;
+    --info: #74a8f0;
+    --info-soft: #14223a;
+    --chart-1: #3fbf94;
+    --chart-2: #2a7a62;
+    --chart-3: #1f3b33;
+    --chart-grid: #1f2624;
+    --chart-axis: #66706c;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --band-bg: #111715;
+    --band-surface: #182020;
+    --band-border: #28322e;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0c0f0e;
+  --bg-subtle: #111514;
+  --surface: #141918;
+  --surface-2: #181e1c;
+  --border: #252d2a;
+  --border-strong: #323c38;
+  --text: #eef2f0;
+  --text-2: #c3cbc7;
+  --muted: #8d9894;
+  --faint: #66706c;
+  --accent: #3fbf94;
+  --accent-hover: #5ccfa6;
+  --accent-soft: #15302a;
+  --accent-softer: #111f1b;
+  --accent-contrast: #06140f;
+  --accent-ring: rgba(63, 191, 148, 0.32);
+  --success: #4ade80;
+  --success-soft: #13291d;
+  --warning: #f0a54a;
+  --warning-soft: #2e2210;
+  --danger: #f58a5d;
+  --danger-soft: #311a12;
+  --info: #74a8f0;
+  --info-soft: #14223a;
+  --chart-1: #3fbf94;
+  --chart-2: #2a7a62;
+  --chart-3: #1f3b33;
+  --chart-grid: #1f2624;
+  --chart-axis: #66706c;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --band-bg: #111715;
+  --band-surface: #182020;
+  --band-border: #28322e;
+  color-scheme: dark;
+}

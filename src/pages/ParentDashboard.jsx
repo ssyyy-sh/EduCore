@@ -1,0 +1,143 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FiAward, FiUserCheck, FiTrendingUp, FiCheckSquare, FiArrowRight, FiMessageSquare, FiAlertCircle, FiClock, FiCheckCircle } from 'react-icons/fi';
+import PageHeader from '../components/dashboard/PageHeader.jsx';
+import StatsCard from '../components/dashboard/StatsCard.jsx';
+import RecentGrades from '../components/dashboard/Grades.jsx';
+import NotificationsList from '../components/dashboard/Notifications.jsx';
+import { Sparkline } from '../components/dashboard/Analytics.jsx';
+import { Avatar, Segmented, useFakeLoading, Bar } from '../components/ui/index.jsx';
+import { CHILDREN } from '../data/mock.js';
+import { useApp } from '../context/AppContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useI18n } from '../i18n/I18nContext.jsx';
+import { greetingKey } from '../components/dashboard/greeting.js';
+
+export default function ParentDashboard() {
+  const [childId, setChildId] = useState('alex');
+  const loading = useFakeLoading(300, [childId]);
+  const { notifications, assignments, markNotificationRead } = useApp();
+  const { user } = useAuth();
+  const { t, tr, fmtDec, relativeDue } = useI18n();
+  const navigate = useNavigate();
+  const base = CHILDREN.find((x) => x.id === childId);
+  // Alex's numbers come from the live assignment list, so they match the student's own dashboard.
+  const c =
+    childId === 'alex'
+      ? {
+          ...base,
+          assignments: {
+            done: assignments.filter((a) => a.status === 'Completed').length,
+            pending: assignments.filter((a) => a.status === 'Pending').length,
+            overdue: assignments.filter((a) => a.status === 'Overdue').length,
+          },
+        }
+      : base;
+  const totalA = c.assignments.done + c.assignments.pending + c.assignments.overdue;
+  const upcoming = c.upcoming.map((id) => assignments.find((a) => a.id === id)).filter((a) => a && a.status !== 'Completed');
+
+  return (
+    <div className="page">
+      <PageHeader
+        title={`${t(greetingKey())}, ${user.firstName}.`}
+        description={t('dash.parent.sub')}
+        actions={
+          <Link to={`/app/messages?to=${encodeURIComponent(c.tutor)}&role=Teacher`} className="btn btn-secondary">
+            <FiMessageSquare /> {t('dash.parent.message')}
+          </Link>
+        }
+      />
+
+      <div className="child-switch">
+        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((ch) => ({ value: ch.id, label: `${ch.name} · ${ch.className}` }))} />
+        <div className="child-meta">
+          <Avatar name={c.full} size={24} />
+          <span>{t('dash.parent.childMeta', { name: c.full, cls: c.className, tutor: c.tutor })}</span>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <StatsCard icon={FiAward} label={t('dash.stats.avgGrade')} value={fmtDec(c.avgGrade)} suffix={t('common.of5')} loading={loading} hint={t('dash.parent.trend')}>
+          <Sparkline data={c.trend} height={30} />
+        </StatsCard>
+        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${c.attendance}%`} loading={loading} hint={c.attendance >= 95 ? t('dash.parent.excellent') : t('dash.parent.aboveMin')} />
+        <StatsCard icon={FiTrendingUp} label={t('dash.stats.progress')} value={`${c.progress}%`} loading={loading} hint={t('dash.parent.ofObjectives')}>
+          <Bar value={c.progress} />
+        </StatsCard>
+        <StatsCard icon={FiCheckSquare} label={t('dash.stats.assignments')} value={`${c.assignments.done}/${totalA}`} loading={loading} hint={t('dash.parent.assignHint', { overdue: c.assignments.overdue, pending: c.assignments.pending })} />
+      </div>
+
+      <div className="grid-3">
+        <section className="panel">
+          <div className="panel-head">
+            <h3>{t('dash.stats.assignments')}</h3>
+            <Link to="/app/assignments" className="link-more">
+              {t('common.viewAll')} <FiArrowRight />
+            </Link>
+          </div>
+          <div className="panel-body">
+            <div className="assign-summary">
+              <div>
+                <FiCheckCircle className="t-success" aria-hidden="true" />
+                <strong className="num">{c.assignments.done}</strong>
+                <span>{t('status.Completed')}</span>
+              </div>
+              <div>
+                <FiClock className="t-warning" aria-hidden="true" />
+                <strong className="num">{c.assignments.pending}</strong>
+                <span>{t('status.Pending')}</span>
+              </div>
+              <div>
+                <FiAlertCircle className="t-danger" aria-hidden="true" />
+                <strong className="num">{c.assignments.overdue}</strong>
+                <span>{t('status.Overdue')}</span>
+              </div>
+            </div>
+            {upcoming.length > 0 ? (
+              <ul className="mini-list">
+                {upcoming.map((a) => (
+                  <li key={a.id}>
+                    <span>{tr(a.title)}</span>
+                    <em className={a.status === 'Overdue' ? 't-danger' : ''}>{relativeDue(a.due)}</em>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted-note">{t('dash.parent.noOpen')}</p>
+            )}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-head">
+            <h3>{t('dash.student.recentGrades')}</h3>
+            <Link to="/app/grades" className="link-more">
+              {t('common.grades')} <FiArrowRight />
+            </Link>
+          </div>
+          <div className="panel-body">
+            <RecentGrades items={c.recent} />
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-head">
+            <h3>{t('nav.notifications')}</h3>
+            <Link to="/app/notifications" className="link-more">
+              {t('common.viewAll')} <FiArrowRight />
+            </Link>
+          </div>
+          <div className="panel-body flush">
+            <NotificationsList
+              items={notifications.slice(0, 4)}
+              onItem={(n) => {
+                markNotificationRead(n.id);
+                navigate('/app/notifications');
+              }}
+            />
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
