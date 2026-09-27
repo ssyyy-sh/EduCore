@@ -18,7 +18,7 @@ const SECTIONS = [
   { key: 'security', icon: FiShield },
   { key: 'roles', icon: FiUsers },
 ];
-const PAGE_ORDER = ['student', 'parent', 'teacher', 'school', 'students', 'staff', 'gradebook', 'attendance', 'analytics', 'assignments', 'grades', 'report-card', 'schedule', 'progress', 'announcements', 'messages', 'notifications', 'settings'];
+const PAGE_ORDER = ['student', 'parent', 'teacher', 'school', 'students', 'staff', 'gradebook', 'attendance', 'analytics', 'assignments', 'grades', 'report-card', 'schedule', 'progress', 'behavior', 'meetings', 'announcements', 'messages', 'notifications', 'settings'];
 
 function InstallApp() {
   const { t } = useI18n();

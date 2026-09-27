@@ -1,4 +1,4 @@
-import { FiHome, FiCalendar, FiCheckSquare, FiAward, FiTrendingUp, FiMessageSquare, FiBell, FiSettings, FiUsers, FiBarChart2, FiBookOpen, FiUserCheck, FiBriefcase, FiVolume2, FiKey } from 'react-icons/fi';
+import { FiHome, FiCalendar, FiCheckSquare, FiAward, FiTrendingUp, FiMessageSquare, FiBell, FiSettings, FiUsers, FiBarChart2, FiBookOpen, FiUserCheck, FiBriefcase, FiVolume2, FiKey, FiClipboard, FiStar } from 'react-icons/fi';
 
 const ICONS = {
   overview: FiHome,
@@ -16,6 +16,8 @@ const ICONS = {
   staff: FiBriefcase,
   announcements: FiVolume2,
   owner: FiKey,
+  meetings: FiClipboard,
+  behavior: FiStar,
 };
 
 // Label = t(`nav.${key}`)
@@ -24,19 +26,19 @@ const comms = [item('announcements', '/app/announcements'), item('messages', '/a
 
 export const NAV = {
   student: {
-    main: [item('overview', '/app/student'), item('schedule', '/app/schedule'), item('assignments', '/app/assignments'), item('grades', '/app/grades'), item('attendance', '/app/attendance'), item('progress', '/app/progress')],
+    main: [item('overview', '/app/student'), item('schedule', '/app/schedule'), item('assignments', '/app/assignments'), item('grades', '/app/grades'), item('attendance', '/app/attendance'), item('behavior', '/app/behavior'), item('progress', '/app/progress')],
     comms,
   },
   parent: {
-    main: [item('overview', '/app/parent'), item('grades', '/app/grades'), item('assignments', '/app/assignments'), item('attendance', '/app/attendance'), item('schedule', '/app/schedule'), item('progress', '/app/progress')],
+    main: [item('overview', '/app/parent'), item('grades', '/app/grades'), item('assignments', '/app/assignments'), item('attendance', '/app/attendance'), item('behavior', '/app/behavior'), item('meetings', '/app/meetings'), item('schedule', '/app/schedule'), item('progress', '/app/progress')],
     comms,
   },
   teacher: {
-    main: [item('overview', '/app/teacher'), item('gradebook', '/app/gradebook'), item('attendance', '/app/attendance'), item('assignments', '/app/assignments'), item('students', '/app/students'), item('schedule', '/app/schedule'), item('analytics', '/app/analytics')],
+    main: [item('overview', '/app/teacher'), item('gradebook', '/app/gradebook'), item('attendance', '/app/attendance'), item('assignments', '/app/assignments'), item('behavior', '/app/behavior'), item('meetings', '/app/meetings'), item('students', '/app/students'), item('schedule', '/app/schedule'), item('analytics', '/app/analytics')],
     comms,
   },
   school: {
-    main: [item('overview', '/app/school'), item('students', '/app/students'), item('staff', '/app/staff'), item('attendance', '/app/attendance'), item('gradebook', '/app/gradebook'), item('analytics', '/app/analytics'), item('assignments', '/app/assignments'), item('schedule', '/app/schedule')],
+    main: [item('overview', '/app/school'), item('students', '/app/students'), item('staff', '/app/staff'), item('attendance', '/app/attendance'), item('gradebook', '/app/gradebook'), item('schedule', '/app/schedule'), item('behavior', '/app/behavior'), item('meetings', '/app/meetings'), item('analytics', '/app/analytics'), item('assignments', '/app/assignments')],
     comms,
   },
 };
@@ -65,4 +67,6 @@ export const PAGE_KEYS = {
   announcements: 'announcements',
   'report-card': 'grades',
   owner: 'owner',
+  meetings: 'meetings',
+  behavior: 'behavior',
 };

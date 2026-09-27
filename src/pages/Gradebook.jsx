@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FiPlus, FiDownload, FiTrash2, FiLock } from 'react-icons/fi';
+import { FiPlus, FiDownload, FiTrash2, FiLock, FiCheckCircle } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { GradeChip } from '../components/dashboard/Grades.jsx';
 import { Avatar, SearchInput, Select, Segmented, Modal, EmptyState, Popover } from '../components/ui/index.jsx';
@@ -10,6 +10,72 @@ import { downloadCSV } from '../lib/download.js';
 
 const MARKS = [5, 4, 3, 2];
 const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+/** Proposed term grade: the average rounded half up (4.5 → 5, 3.49 → 3). */
+export const proposeGrade = (a) => (a == null ? null : Math.max(2, Math.min(5, Math.floor(a + 0.5 + 1e-9))));
+
+function FinalCell({ final, proposed, readOnly, label, onSet }) {
+  const { t } = useI18n();
+  const shown = final?.grade ?? proposed;
+  const inner = final ? (
+    <span className="final-set">
+      <GradeChip value={final.grade} />
+      <FiCheckCircle aria-hidden="true" />
+    </span>
+  ) : proposed ? (
+    <span className="final-proposed" title={t('gradebook.proposed')}>
+      {proposed}
+    </span>
+  ) : (
+    <span className="t-muted">—</span>
+  );
+  if (readOnly) return <span className="gb-cell is-readonly">{inner}</span>;
+  return (
+    <Popover
+      align="right"
+      role="menu"
+      label={label}
+      className="gb-pop"
+      renderTrigger={({ ref, open, toggle }) => (
+        <button ref={ref} type="button" className={`gb-cell gb-final ${open ? 'is-open' : ''}`} onClick={toggle} aria-label={`${label}: ${shown ?? '—'}${final ? '' : ` (${t('gradebook.proposed')})`}`}>
+          {inner}
+        </button>
+      )}
+    >
+      {(close) => (
+        <div className="gb-marks">
+          {MARKS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="menuitemradio"
+              aria-checked={final?.grade === m}
+              className={`gb-mark grade-${m >= 5 ? 'high' : m >= 4 ? 'mid' : 'low'} ${final?.grade === m ? 'is-selected' : ''} ${!final && proposed === m ? 'is-proposed' : ''}`}
+              onClick={() => {
+                onSet(m);
+                close();
+              }}
+            >
+              {m}
+            </button>
+          ))}
+          {final && (
+            <button
+              type="button"
+              className="gb-mark gb-clear"
+              onClick={() => {
+                onSet(null);
+                close();
+              }}
+              aria-label={t('gradebook.clearFinal')}
+            >
+              —
+            </button>
+          )}
+        </div>
+      )}
+    </Popover>
+  );
+}
 
 function MarkCell({ value, onSet, readOnly, label }) {
   const { t } = useI18n();
@@ -61,7 +127,8 @@ function MarkCell({ value, onSet, readOnly, label }) {
 }
 
 export default function Gradebook() {
-  const { role, students, gradebookColumns, getMark, setMark, addColumn, removeColumn, toast } = useApp();
+  const { role, students, gradebookColumns, getMark, setMark, addColumn, removeColumn, getFinal, setFinals, toast } = useApp();
+  const [confirmFinals, setConfirmFinals] = useState(false);
   const { t, tr, ts, fmtDate, fmtDec } = useI18n();
   const isTeacher = role === 'teacher';
   const [cls, setCls] = useState(isTeacher ? TEACHER_CLASSES[0].name : '9-A');
@@ -81,11 +148,14 @@ export default function Gradebook() {
   const studentAvg = (s) => avg(columns.map((c) => getMark(cls, s, c.id)).filter(Boolean));
   const colAvg = (c) => avg(roster.map((s) => getMark(cls, s, c.id)).filter(Boolean));
   const classAvg = avg(roster.map(studentAvg).filter((x) => x != null));
+  const finalOf = (st) => getFinal(cls, st.id, subject);
+  const pendingFinals = roster.filter((st) => !finalOf(st) && proposeGrade(studentAvg(st)));
+  const confirmedCount = roster.filter((st) => finalOf(st)).length;
 
   const exportCSV = () => {
     const ok = downloadCSV(`educore-gradebook-${cls}.csv`, [
-      [t('table.name'), 'ID', ...columns.map((c) => `${colTitle(c)} (${fmtDate(c.date)})`), t('gradebook.average')],
-      ...roster.map((s) => [s.name, s.id, ...columns.map((c) => getMark(cls, s, c.id) ?? ''), studentAvg(s) != null ? fmtDec(studentAvg(s)) : '']),
+      [t('table.name'), 'ID', ...columns.map((c) => `${colTitle(c)} (${fmtDate(c.date)})`), t('gradebook.average'), t('gradebook.final')],
+      ...roster.map((s) => [s.name, s.id, ...columns.map((c) => getMark(cls, s, c.id) ?? ''), studentAvg(s) != null ? fmtDec(studentAvg(s)) : '', finalOf(s)?.grade ?? '']),
     ]);
     if (ok) toast(t('gradebook.exported'));
   };
@@ -104,6 +174,11 @@ export default function Gradebook() {
             <button type="button" className="btn btn-secondary" onClick={exportCSV}>
               <FiDownload /> {t('common.exportCsv')}
             </button>
+            {isTeacher && (
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmFinals(true)} disabled={pendingFinals.length === 0}>
+                <FiCheckCircle /> {t('gradebook.confirmFinals')}
+              </button>
+            )}
             {isTeacher && (
               <button type="button" className="btn btn-primary" onClick={() => setModal({ title: '', date: isoDay(TODAY), type: 'Quiz', error: '' })}>
                 <FiPlus /> {t('gradebook.addColumn')}
@@ -171,6 +246,9 @@ export default function Gradebook() {
                       </th>
                     ))}
                     <th className="right">{t('gradebook.average')}</th>
+                    <th className="center gb-final-th" title={t('gradebook.finalHint')}>
+                      {t('gradebook.final')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -201,6 +279,18 @@ export default function Gradebook() {
                           </td>
                         ))}
                         <td className="right num cell-strong">{a != null ? fmtDec(a) : '—'}</td>
+                        <td className="gb-td">
+                          <FinalCell
+                            final={finalOf(s)}
+                            proposed={proposeGrade(a)}
+                            readOnly={readOnly}
+                            label={`${s.name} · ${t('gradebook.final')}`}
+                            onSet={(g) => {
+                              setFinals(cls, subject, [{ studentId: s.id, grade: g }]);
+                              toast(g ? t('gradebook.finalSaved', { name: s.name, grade: g }) : t('gradebook.finalCleared'));
+                            }}
+                          />
+                        </td>
                       </tr>
                     );
                   })}
@@ -214,6 +304,9 @@ export default function Gradebook() {
                       </td>
                     ))}
                     <td className="right num cell-strong">{classAvg != null ? fmtDec(classAvg) : '—'}</td>
+                    <td className="gb-td num">
+                      {confirmedCount}/{roster.length}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -278,6 +371,33 @@ export default function Gradebook() {
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal
+        open={confirmFinals}
+        onClose={() => setConfirmFinals(false)}
+        title={t('gradebook.confirmFinals')}
+        description={t('gradebook.confirmFinalsText', { n: pendingFinals.length, cls })}
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setConfirmFinals(false)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setFinals(cls, subject, pendingFinals.map((st) => ({ studentId: st.id, grade: proposeGrade(studentAvg(st)) })));
+                setConfirmFinals(false);
+                toast(t('gradebook.finalsConfirmed', { n: pendingFinals.length }));
+              }}
+            >
+              {t('gradebook.confirmFinalsBtn', { n: pendingFinals.length })}
+            </button>
+          </>
+        }
+      >
+        <p className="hint">{t('gradebook.finalHint')}</p>
       </Modal>
 
       <Modal

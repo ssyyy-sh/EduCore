@@ -16,13 +16,18 @@ import {
   seedMark,
   isoDay,
   schoolDays,
+  MEETINGS_SEED,
+  BEHAVIOR_SEED,
+  CHAT_SEED,
+  TERM,
   L,
 } from '../data/mock.js';
+import { buildTimetable } from '../lib/timetable.js';
 import { readJSON, writeJSON } from '../lib/storage.js';
 import { useAuth } from './AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { REMOTE } from '../lib/supabase.js';
-import { loadAll, api, subscribe } from '../lib/remoteData.js';
+import { loadAll, loadChat, api, subscribe } from '../lib/remoteData.js';
 
 /*
  * Theme, toasts and the demo's shared school data. Changes people make
@@ -51,6 +56,12 @@ const EMPTY = {
   teacherEdits: {}, // { teacherId: { subject, classes, status } }
   tutors: {}, // { cls: teacherId }
   prefs: {}, // { userId: { assignment: true, grade: true, … } }
+  timetable: {}, // { 'class|Day|period': { subject, teacher, teacherId, room } | null }
+  chat: [], // [{ id, from, to, body, at(ISO), readAt }]
+  meetings: [], // [{ id, teacherId, teacherName, startsAt(ISO), duration, location, bookedBy, bookedName, child, note, bookedAt }]
+  behavior: [], // [{ id, studentId, cls, kind: 'praise'|'remark', category, note, author, authorId, at }]
+  finals: {}, // { 'term|class|studentId|subject': { grade, at } }
+  contacts: [], // server mode: people I can chat with [{ id, name, role }]
 };
 
 function addRead(d, key, uid, ids) {
@@ -65,7 +76,7 @@ const LANGS = ['en', 'ru', 'uz'];
 const pickLang = (v, l) => (v && typeof v === 'object' ? v[l] ?? v.en : v);
 const compose = (tpl, vars) => Object.fromEntries(LANGS.map((l) => [l, tpl[l].replace(/\{(\w+)\}/g, (_, k) => pickLang(vars[k], l) ?? '')]));
 
-export const NOTIF_TYPES = ['assignment', 'grade', 'schedule', 'announcement', 'message', 'attendance'];
+export const NOTIF_TYPES = ['assignment', 'grade', 'schedule', 'announcement', 'message', 'attendance', 'behavior'];
 export const GRADE_SUBJECT = { 'Algebra I': 'Mathematics', Geometry: 'Mathematics', 'Pre-calculus': 'Mathematics' };
 
 function readTheme() {
@@ -78,7 +89,12 @@ function readTheme() {
 
 function loadData() {
   const stored = readJSON(DATA_KEY, {});
-  const d = { ...EMPTY, ...(stored && typeof stored === 'object' ? stored : {}) };
+  const base = stored && typeof stored === 'object' ? stored : {};
+  const d = { ...EMPTY, ...base };
+  // Demo content for the newer sections, added once.
+  if (!('meetings' in base)) d.meetings = MEETINGS_SEED;
+  if (!('behavior' in base)) d.behavior = BEHAVIOR_SEED;
+  if (!('chat' in base)) d.chat = CHAT_SEED;
   // Older saves kept read state as a flat list; start fresh in that case.
   if (Array.isArray(d.readNotifications)) d.readNotifications = {};
   if (Array.isArray(d.readMessages)) d.readMessages = {};
@@ -90,7 +106,7 @@ function loadData() {
 }
 
 export function AppProvider({ children }) {
-  const { user } = useAuth();
+  const { user, directory } = useAuth();
   const isOwner = user?.role === 'owner';
   // The Owner sees the app through one of the four roles at a time ("view as").
   const [viewAs, setViewAsState] = useState(() => {
@@ -174,6 +190,21 @@ export function AppProvider({ children }) {
     },
     [reload]
   );
+  // Chat messages arrive on their own (lighter than reloading everything).
+  const chatTimer = useRef(null);
+  const reloadChat = useCallback(() => {
+    clearTimeout(chatTimer.current);
+    chatTimer.current = setTimeout(async () => {
+      const scope = scopeRef.current;
+      if (!REMOTE || !scope) return;
+      try {
+        const chat = await loadChat(scope.uid);
+        if (scopeRef.current?.uid === scope.uid) setData((d) => ({ ...d, chat }));
+      } catch (e) {
+        console.warn('[educore] chat load failed', e);
+      }
+    }, 150);
+  }, []);
 
   const scopeKey = serverScope ? `${serverScope.uid}|${serverScope.role}` : '';
   useEffect(() => {
@@ -190,7 +221,7 @@ export function AppProvider({ children }) {
       setData({ ...EMPTY });
     }
     reload();
-    const unsubscribe = subscribe(() => scheduleReload());
+    const unsubscribe = subscribe((table) => (table === 'chat_messages' ? reloadChat() : scheduleReload()));
     const onVisible = () => document.visibilityState === 'visible' && scheduleReload(100);
     document.addEventListener('visibilitychange', onVisible);
     const timer = setInterval(() => scheduleReload(0), 60000);
@@ -200,7 +231,17 @@ export function AppProvider({ children }) {
       clearInterval(timer);
       clearTimeout(reloadTimer.current);
     };
-  }, [scopeKey, reload, scheduleReload]);
+  }, [scopeKey, reload, scheduleReload, reloadChat]);
+
+  // Demo mode: other tabs of this browser (e.g. another account) see changes at once.
+  useEffect(() => {
+    if (REMOTE) return undefined;
+    const onStorage = (e) => {
+      if (e.key === DATA_KEY) setData(loadData());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   /** Save a change on the server. If it fails, the data is reloaded so the screen shows what is really saved. */
   const sync = useCallback(
@@ -333,6 +374,35 @@ export function AppProvider({ children }) {
     [gradeLog]
   );
 
+  // ----- timetable -----
+  const timetable = useMemo(() => buildTimetable(data.timetable), [data.timetable]);
+  /** Whose lessons a teacher account sees (demo mapping: Mr. Hayes). */
+  const meTeacher = useMemo(() => ({ id: 't-hayes', name: 'Daniel Hayes', aliases: ['Mr. Hayes'] }), []);
+
+  // ----- chat -----
+  const myId = user?.id;
+  const contacts = useMemo(() => {
+    if (!myId) return [];
+    const list = REMOTE ? data.contacts || [] : (directory || []).filter((a) => a.id !== myId);
+    const me = user?.role;
+    const allowed = (r) => (me === 'student' || me === 'parent' ? ['teacher', 'school', 'owner'].includes(r) : r !== 'pending');
+    return list.filter((c) => allowed(c.role));
+  }, [data.contacts, directory, myId, user]);
+  const chat = useMemo(() => (myId ? data.chat.filter((m) => m.from === myId || m.to === myId).map((m) => ({ ...m, date: new Date(m.at), mine: m.from === myId })) : []), [data.chat, myId]);
+  const chatUnread = useMemo(() => chat.filter((m) => !m.mine && !m.readAt).length, [chat]);
+
+  // ----- meetings, behavior, final grades -----
+  const meetings = useMemo(() => [...data.meetings].map((m) => ({ ...m, date: new Date(m.startsAt) })).sort((a, b) => a.date - b.date), [data.meetings]);
+  const behavior = useMemo(() => [...data.behavior].map((b) => ({ ...b, date: new Date(b.at) })).sort((a, b) => b.date - a.date), [data.behavior]);
+  const getFinal = useCallback((cls, studentId, subject) => data.finals[`${TERM}|${cls}|${studentId}|${subject}`] || null, [data.finals]);
+  const finalsForStudent = useCallback(
+    (studentId) =>
+      Object.entries(data.finals)
+        .filter(([k]) => k.startsWith(`${TERM}|`) && k.split('|')[2] === studentId)
+        .map(([k, v]) => ({ subject: k.split('|')[3], cls: k.split('|')[1], ...v })),
+    [data.finals]
+  );
+
   // ----- notifications -----
   const prefs = useMemo(() => {
     const p = (user && data.prefs[user.id]) || {};
@@ -372,8 +442,31 @@ export function AppProvider({ children }) {
         out.push({ id: `sub-${aid}-${s.at}`, type: 'assignment', title: L('New submission', 'Новая сданная работа', 'Yangi topshirilgan ish'), text: compose({ en: '{n} · {t}', ru: '{n} · {t}', uz: '{n} · {t}' }, { n: s.studentName || 'Alex Morgan', t: a.title }), at: new Date(s.at), unread: true });
       }
     }
+    // Chat: one notification per person with unread messages
+    const bySender = {};
+    for (const m of chat) if (!m.mine && !m.readAt) (bySender[m.from] ||= []).push(m);
+    for (const [from, list] of Object.entries(bySender)) {
+      const last = list[list.length - 1];
+      const who = contacts.find((c) => c.id === from)?.name || '—';
+      out.push({ id: `chat-${last.id}`, type: 'message', title: compose({ en: 'Message from {n}', ru: 'Сообщение: {n}', uz: 'Xabar: {n}' }, { n: who }), text: typeof last.body === 'object' ? last.body : { en: last.body, ru: last.body, uz: last.body }, at: last.date, unread: true, link: `/app/messages?chat=${from}` });
+    }
+    // Behaviour notes about my children / me
+    const weekAgo = Date.now() - 14 * 86400000;
+    for (const b of behavior) {
+      if (!myStudentIds.includes(b.studentId) || b.date.getTime() < weekAgo) continue;
+      const child = CHILDREN.find((c) => c.studentId === b.studentId);
+      const title = b.kind === 'praise' ? { en: 'Praise', ru: 'Поощрение', uz: 'Rag‘bat' } : { en: 'Remark', ru: 'Замечание', uz: 'Tanbeh' };
+      out.push({ id: `beh-${b.id}`, type: 'behavior', title: role === 'parent' ? compose({ en: '{k}: {n}', ru: '{k}: {n}', uz: '{k}: {n}' }, { k: title, n: child?.name }) : title, text: typeof b.note === 'object' ? b.note : { en: b.note, ru: b.note, uz: b.note }, at: b.date, unread: true, link: '/app/behavior' });
+    }
+    // Conference bookings for my slots
+    if (role === 'teacher') {
+      for (const m of meetings) {
+        if (m.teacherId !== myId || !m.bookedBy || !m.bookedAt) continue;
+        out.push({ id: `mt-${m.id}-${m.bookedAt}`, type: 'schedule', title: L('Conference booked', 'Запись на собрание', 'Majlisga yozilish'), text: compose({ en: '{p} · {c}', ru: '{p} · {c}', uz: '{p} · {c}' }, { p: m.bookedName || '—', c: m.child || '' }), at: new Date(m.bookedAt), unread: true, link: '/app/meetings' });
+      }
+    }
     return out;
-  }, [gradeLog, myStudentIds, role, data.announcements, data.submissions, announcements, assignments, user]);
+  }, [gradeLog, myStudentIds, role, data.announcements, data.submissions, announcements, assignments, user, chat, contacts, behavior, meetings, myId]);
 
   // Each role gets its own feed; read state is kept per account.
   const notifications = useMemo(
@@ -550,6 +643,78 @@ export function AppProvider({ children }) {
         update((d) => ({ ...d, tutors: { ...d.tutors, [cls]: teacherId } }));
         return sync(() => api.setTutor(cls, teacherId));
       },
+      // Timetable (school admin)
+      setTimetableCell: (cls, day, p, cell) => {
+        const key = `${cls}|${day}|${p}`;
+        update((d) => ({ ...d, timetable: { ...d.timetable, [key]: cell } }));
+        return sync(() => api.setTimetableCell({ cls, day, p, cell }));
+      },
+      // Chat
+      sendChat: (to, body) => {
+        const m = { id: newId('cm'), from: uid, to, body, at: new Date().toISOString(), readAt: null };
+        update((d) => ({ ...d, chat: [...d.chat, m] }));
+        return sync(() => api.sendChat({ to, body }));
+      },
+      markChatRead: (otherId) => {
+        const now = new Date().toISOString();
+        if (!dataRef.current.chat.some((m) => m.from === otherId && m.to === uid && !m.readAt)) return Promise.resolve(true);
+        update((d) => ({ ...d, chat: d.chat.map((m) => (m.from === otherId && m.to === uid && !m.readAt ? { ...m, readAt: now } : m)) }));
+        return sync(() => api.markChatRead(otherId));
+      },
+      // Parent–teacher conferences
+      addSlots: (slots) => {
+        const rows = slots.map((x) => ({ id: REMOTE ? crypto.randomUUID() : newId('ms'), teacherId: uid, teacherName: user?.name, bookedBy: null, bookedName: null, child: null, note: '', ...x }));
+        update((d) => ({ ...d, meetings: [...d.meetings, ...rows] }));
+        return sync(() => api.addSlots(rows));
+      },
+      removeSlot: (id) => {
+        update((d) => ({ ...d, meetings: d.meetings.filter((m) => m.id !== id) }));
+        return sync(() => api.removeSlot(id));
+      },
+      bookSlot: (id, { child, note }) => {
+        const now = new Date().toISOString();
+        const slot = dataRef.current.meetings.find((m) => m.id === id);
+        if (!slot || slot.bookedBy) return Promise.resolve(false);
+        update((d) => ({ ...d, meetings: d.meetings.map((m) => (m.id === id ? { ...m, bookedBy: uid, bookedName: user?.name, child, note: note || '', bookedAt: now } : m)) }));
+        return sync(() => api.bookSlot(id, child, note || ''));
+      },
+      cancelBooking: (id) => {
+        update((d) => ({ ...d, meetings: d.meetings.map((m) => (m.id === id ? { ...m, bookedBy: null, bookedName: null, child: null, note: '', bookedAt: null } : m)) }));
+        return sync(() => api.cancelBooking(id));
+      },
+      // Behaviour
+      addBehavior: ({ studentId, cls, kind, category, note }) => {
+        const b = { id: REMOTE ? crypto.randomUUID() : newId('b'), studentId, cls, kind, category, note, author: user?.name, authorId: uid, at: new Date().toISOString() };
+        update((d) => ({ ...d, behavior: [b, ...d.behavior] }));
+        return sync(() => api.addBehavior(b));
+      },
+      removeBehavior: (id) => {
+        update((d) => ({ ...d, behavior: d.behavior.filter((b) => b.id !== id) }));
+        return sync(() => api.removeBehavior(id));
+      },
+      // Final (term) grades — the grade also goes to "recent grades" of the student
+      setFinals: (cls, subject, list) => {
+        const at = new Date().toISOString();
+        const logs = list.filter((x) => x.grade).map((x) => logEntry({ studentId: x.studentId, subject, work: L('Term grade', 'Итог за четверть', 'Chorak bahosi'), grade: x.grade }));
+        update((d) => {
+          const finals = { ...d.finals };
+          for (const x of list) {
+            const k = `${TERM}|${cls}|${x.studentId}|${subject}`;
+            if (x.grade) finals[k] = { grade: x.grade, at };
+            else delete finals[k];
+          }
+          return logs.reduce(addLog, { ...d, finals });
+        });
+        return sync(() =>
+          api.setFinals({
+            term: TERM,
+            cls,
+            subject,
+            list,
+            logs: logs.map((l) => ({ id: l.id, student_id: l.studentId, subject: l.subject, work: l.work, grade: l.grade, at: l.at })),
+          })
+        );
+      },
       resetData: () => {
         update(() => ({ ...EMPTY }));
         return sync(() => api.resetAll());
@@ -569,6 +734,15 @@ export function AppProvider({ children }) {
       role,
       ready,
       remote: REMOTE,
+      timetable,
+      meTeacher,
+      contacts,
+      chat,
+      chatUnread,
+      meetings,
+      behavior,
+      getFinal,
+      finalsForStudent,
       reload,
       isOwner,
       viewAs,
@@ -597,7 +771,7 @@ export function AppProvider({ children }) {
       isoDay,
       ...actions,
     }),
-    [role, ready, reload, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
+    [role, ready, reload, timetable, meTeacher, contacts, chat, chatUnread, meetings, behavior, getFinal, finalsForStudent, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

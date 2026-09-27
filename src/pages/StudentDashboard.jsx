@@ -8,8 +8,9 @@ import RecentGrades from '../components/dashboard/Grades.jsx';
 import SubjectProgress from '../components/dashboard/Progress.jsx';
 import { TrendLine, Legend, ProgressRing, useMonthData } from '../components/dashboard/Analytics.jsx';
 import { useFakeLoading } from '../components/ui/index.jsx';
-import { SCHEDULE, RECENT_GRADES, DEMO_STUDENT_IDS, SUBJECT_PROGRESS, GRADE_HISTORY, STUDENT_STATS, todayKey, TODAY } from '../data/mock.js';
+import { RECENT_GRADES, DEMO_STUDENT_IDS, SUBJECT_PROGRESS, GRADE_HISTORY, STUDENT_STATS, todayKey, TODAY } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
+import { lessonsForClass } from '../lib/timetable.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { greetingKey } from '../components/dashboard/greeting.js';
@@ -17,7 +18,7 @@ import { greetingKey } from '../components/dashboard/greeting.js';
 export default function StudentDashboard() {
   const loading = useFakeLoading(400);
   const navigate = useNavigate();
-  const { assignments, recentGrades, students, attendanceSummary } = useApp();
+  const { assignments, recentGrades, students, attendanceSummary, timetable } = useApp();
   const att = attendanceSummary(students.find((s) => s.id === DEMO_STUDENT_IDS.alex));
   const { user } = useAuth();
   const { t, tw, fmtDate, fmtDec } = useI18n();
@@ -71,14 +72,14 @@ export default function StudentDashboard() {
           <div className="panel-head">
             <div>
               <h3>{isToday ? t('dash.student.todaySchedule') : t('dash.student.daySchedule', { day: tw(day) })}</h3>
-              <p>{isToday ? t('common.lesson', { count: SCHEDULE[day].length }) : t('dash.student.nextDay')}</p>
+              <p>{isToday ? t('common.lesson', { count: lessonsForClass(timetable, '9-A', day).length }) : t('dash.student.nextDay')}</p>
             </div>
             <Link to="/app/schedule" className="link-more">
               <FiCalendar /> {t('common.week')}
             </Link>
           </div>
           <div className="panel-body">
-            <DaySchedule lessons={SCHEDULE[day]} isToday={isToday} />
+            <DaySchedule lessons={lessonsForClass(timetable, '9-A', day)} isToday={isToday} />
           </div>
         </section>
       </div>

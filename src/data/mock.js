@@ -481,8 +481,8 @@ export const CHILDREN = [
 export const TEACHER_CLASSES = [
   { name: '9-A', subject: 'Algebra I', attendance: 92, avg: 84, next: { day: 'Monday', time: '08:30', room: 'B204' } },
   { name: '9-C', subject: 'Algebra I', attendance: 95, avg: 81, next: { day: 'Monday', time: '11:25', room: 'B204' } },
-  { name: '10-B', subject: 'Geometry', attendance: 90, avg: 78, next: { day: 'Tuesday', time: '09:25', room: 'B206' } },
-  { name: '11-A', subject: 'Pre-calculus', attendance: 94, avg: 86, next: { day: 'Wednesday', time: '10:30', room: 'B204' } },
+  { name: '10-B', subject: 'Geometry', attendance: 90, avg: 78, next: { day: 'Tuesday', time: '10:30', room: 'B206' } },
+  { name: '11-A', subject: 'Pre-calculus', attendance: 94, avg: 86, next: { day: 'Tuesday', time: '11:25', room: 'B204' } },
 ];
 export const TEACHER_SUBMISSIONS = [
   { id: 's1', title: L('Quadratic equations — PS4', 'Квадратные уравнения — задачи 4', 'Kvadrat tenglamalar — 4-masalalar'), cls: '9-A', submitted: 19, total: 27, due: addDays(TODAY, 1) },
@@ -757,3 +757,82 @@ export const CHILD_SUBJECT_GRADES = {
     { subject: 'Art', teacher: 'Ms. Lindqvist', grade: 5, average: 4.6, change: 0.0 },
   ],
 };
+
+// ---------- timetable ----------
+/** Lesson periods of the school day. */
+export const PERIODS = [
+  { p: 1, start: '08:30', end: '09:15' },
+  { p: 2, start: '09:25', end: '10:10' },
+  { p: 3, start: '10:30', end: '11:15' },
+  { p: 4, start: '11:25', end: '12:10' },
+  { p: 5, start: '13:00', end: '13:45' },
+  { p: 6, start: '13:55', end: '14:40' },
+  { p: 7, start: '14:50', end: '15:35' },
+];
+const TEACHER_IDS = { 'Mr. Hayes': 't-hayes', 'Ms. Laurent': 't-laurent', 'Dr. Tanaka': 't-tanaka', 'Ms. Silva': 't-silva', 'Ms. Hughes': 't-hughes' };
+const periodOf = (start) => PERIODS.find((x) => x.start === start)?.p;
+const cell = (subject, teacher, room) => ({ subject, teacher, teacherId: TEACHER_IDS[teacher] || null, room });
+/** Starting timetable: { 'class|Day|period': { subject, teacher, teacherId, room } }. */
+export const TIMETABLE_SEED = (() => {
+  const out = {};
+  for (const day of WEEKDAYS) for (const l of SCHEDULE[day]) out[`9-A|${day}|${periodOf(l.start)}`] = cell(l.subject, l.teacher, l.room);
+  const add = (cls, rows) => rows.forEach(([day, p, subject, teacher, room]) => (out[`${cls}|${day}|${p}`] = cell(subject, teacher, room)));
+  // Mr. Hayes' other classes
+  add('9-C', [['Monday', 4, 'Mathematics', 'Mr. Hayes', 'B204'], ['Thursday', 1, 'Mathematics', 'Mr. Hayes', 'B204'], ['Friday', 2, 'Mathematics', 'Mr. Hayes', 'B204']]);
+  add('10-B', [['Tuesday', 3, 'Mathematics', 'Mr. Hayes', 'B206'], ['Thursday', 5, 'Mathematics', 'Mr. Hayes', 'B206'], ['Friday', 4, 'Mathematics', 'Mr. Hayes', 'B206']]);
+  add('11-A', [['Tuesday', 4, 'Mathematics', 'Mr. Hayes', 'B204'], ['Wednesday', 5, 'Mathematics', 'Mr. Hayes', 'B204'], ['Friday', 1, 'Mathematics', 'Mr. Hayes', 'B204']]);
+  // Emma — 6-C
+  add('6-C', [
+    ['Monday', 1, 'Mathematics', 'Mr. Kim', 'A201'], ['Monday', 2, 'English', 'Ms. Silva', 'A203'], ['Monday', 3, 'Science', 'Dr. Patel', ROOM.lab2], ['Monday', 5, 'History', 'Mr. Walsh', 'A108'],
+    ['Tuesday', 1, 'English', 'Ms. Silva', 'A203'], ['Tuesday', 2, 'Mathematics', 'Mr. Kim', 'A201'], ['Tuesday', 3, 'Music', 'Ms. Silva', 'M01'], ['Tuesday', 4, 'Science', 'Dr. Patel', ROOM.lab2],
+    ['Wednesday', 1, 'Mathematics', 'Mr. Kim', 'A201'], ['Wednesday', 2, 'History', 'Mr. Walsh', 'A108'], ['Wednesday', 3, 'English', 'Ms. Silva', 'A203'], ['Wednesday', 4, 'Physical Education', 'Mr. Brooks', ROOM.gym],
+    ['Thursday', 1, 'English', 'Ms. Silva', 'A203'], ['Thursday', 2, 'Mathematics', 'Mr. Kim', 'A201'], ['Thursday', 3, 'History', 'Mr. Walsh', 'A108'], ['Thursday', 4, 'Science', 'Dr. Patel', 'A205'],
+    ['Friday', 1, 'Mathematics', 'Mr. Kim', 'A201'], ['Friday', 2, 'Music', 'Ms. Silva', 'M01'], ['Friday', 3, 'English', 'Ms. Silva', 'A203'],
+  ]);
+  // Daniel — 3-B
+  add('3-B', [
+    ['Monday', 1, 'Reading', 'Ms. Hughes', 'C102'], ['Monday', 2, 'Mathematics', 'Ms. Hughes', 'C102'], ['Monday', 3, 'Science', 'Ms. Hughes', 'C102'],
+    ['Tuesday', 1, 'Mathematics', 'Ms. Hughes', 'C102'], ['Tuesday', 2, 'Reading', 'Ms. Hughes', 'C102'], ['Tuesday', 3, 'Art', 'Ms. Lindqvist', ROOM.studio],
+    ['Wednesday', 1, 'Reading', 'Ms. Hughes', 'C102'], ['Wednesday', 2, 'Mathematics', 'Ms. Hughes', 'C102'], ['Wednesday', 3, 'Physical Education', 'Mr. Brooks', ROOM.gym],
+    ['Thursday', 1, 'Mathematics', 'Ms. Hughes', 'C102'], ['Thursday', 2, 'Reading', 'Ms. Hughes', 'C102'], ['Thursday', 3, 'Science', 'Ms. Hughes', 'C102'],
+    ['Friday', 1, 'Reading', 'Ms. Hughes', 'C102'], ['Friday', 2, 'Mathematics', 'Ms. Hughes', 'C102'], ['Friday', 3, 'Art', 'Ms. Lindqvist', ROOM.studio],
+  ]);
+  return out;
+})();
+
+// ---------- term ----------
+export const TERM = 'T1-2026';
+
+// ---------- demo-only seeds (browser mode) ----------
+const at = (days, h, m = 0) => {
+  const d = addDays(TODAY, days);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+};
+/** Parent–teacher conference slots of the demo teacher (14 October, see the announcement). */
+export const MEETINGS_SEED = [0, 10, 20, 30, 40, 50].map((min, i) => ({
+  id: `ms${i + 1}`,
+  teacherId: 'demo-teacher',
+  teacherName: 'Daniel Hayes',
+  startsAt: new Date(2026, 9, 14, 15, min).toISOString(),
+  duration: 10,
+  location: 'B204',
+  bookedBy: i === 2 ? 'demo-parent' : null,
+  bookedName: i === 2 ? 'Sarah Morgan' : null,
+  child: i === 2 ? 'Alex Morgan' : null,
+  note: '',
+}));
+export const BEHAVIOR_SEED = [
+  { id: 'b1', studentId: DEMO_STUDENT_IDS.alex, cls: '9-A', kind: 'praise', category: 'participation', note: L('Explained the solution of problem 7 to the class.', 'Объяснил классу решение задачи 7.', 'Sinfga 7-masalaning yechimini tushuntirib berdi.'), author: 'Daniel Hayes', authorId: 'demo-teacher', at: at(-2, 9, 40) },
+  { id: 'b2', studentId: DEMO_STUDENT_IDS.alex, cls: '9-A', kind: 'remark', category: 'homework', note: L('Lab report handed in a day late.', 'Лабораторная сдана на день позже.', 'Laboratoriya ishi bir kun kech topshirildi.'), author: 'Kenji Tanaka', authorId: 't-tanaka', at: at(-9, 11, 5) },
+  { id: 'b3', studentId: DEMO_STUDENT_IDS.emma, cls: '6-C', kind: 'praise', category: 'help', note: L('Helped a new classmate settle in.', 'Помогла освоиться новой однокласснице.', 'Yangi sinfdoshiga moslashishga yordam berdi.'), author: 'Ana Silva', authorId: 't-silva', at: at(-3, 10, 20) },
+  { id: 'b4', studentId: DEMO_STUDENT_IDS.daniel, cls: '3-B', kind: 'praise', category: 'effort', note: L('Read a whole book on his own.', 'Самостоятельно прочитал целую книгу.', 'Butun bir kitobni mustaqil o‘qib chiqdi.'), author: 'Rachel Hughes', authorId: 't-hughes', at: at(-5, 12, 0) },
+  { id: 'b5', studentId: DEMO_STUDENT_IDS.daniel, cls: '3-B', kind: 'remark', category: 'late', note: L('Came 10 minutes late to the first lesson.', 'Опоздал на первый урок на 10 минут.', 'Birinchi darsga 10 daqiqa kechikdi.'), author: 'Rachel Hughes', authorId: 't-hughes', at: at(-1, 8, 40) },
+];
+/** Chat between the demo accounts. */
+export const CHAT_SEED = [
+  { id: 'cm1', from: 'demo-teacher', to: 'demo-parent', body: L('Good afternoon! Alex did very well in today’s quiz. Please remind him about problem set 4 — it is due tomorrow.', 'Добрый день! Alex отлично написал сегодняшний тест. Напомните ему, пожалуйста, про задачи 4 — сдать нужно завтра.', 'Assalomu alaykum! Alex bugungi testni a’lo yozdi. Iltimos, unga 4-masalalar haqida eslatib qo‘ying — ertaga topshirish kerak.'), at: at(-1, 16, 10), readAt: at(-1, 17, 55) },
+  { id: 'cm2', from: 'demo-parent', to: 'demo-teacher', body: L('Thank you! I will remind him. Can we meet at the conferences on 14 October?', 'Спасибо! Напомню. Сможем встретиться на собрании 14 октября?', 'Rahmat! Eslatib qo‘yaman. 14-oktabrdagi majlisda uchrasha olamizmi?'), at: at(-1, 18, 2), readAt: at(-1, 18, 30) },
+  { id: 'cm3', from: 'demo-teacher', to: 'demo-parent', body: L('Of course — I have booked 15:20 for you. See you there.', 'Конечно — записал вас на 15:20. До встречи.', 'Albatta — sizni 15:20 ga yozib qo‘ydim. Ko‘rishguncha.'), at: at(-1, 18, 41), readAt: null },
+  { id: 'cm4', from: 'demo-teacher', to: 'demo-student', body: L('Alex, great work on the quiz. Bring your notebook tomorrow — we start quadratic inequalities.', 'Alex, отличная работа на тесте. Завтра возьми тетрадь — начинаем квадратные неравенства.', 'Alex, testda a’lo ish. Ertaga daftaringni olib kel — kvadrat tengsizliklarni boshlaymiz.'), at: at(0, 8, 5), readAt: null },
+];

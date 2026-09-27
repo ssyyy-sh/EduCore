@@ -21,7 +21,7 @@ for (const f of walk('src')) {
 }
 // dynamic keys
 const dyn = {
-  'nav.': ['overview', 'schedule', 'assignments', 'grades', 'progress', 'messages', 'notifications', 'settings', 'students', 'analytics', 'gradebook', 'attendance', 'staff', 'announcements'],
+  'nav.': ['overview', 'schedule', 'assignments', 'grades', 'progress', 'messages', 'notifications', 'settings', 'students', 'analytics', 'gradebook', 'attendance', 'staff', 'announcements', 'meetings', 'behavior'],
   'attendance.': ['present', 'late', 'absent'],
   'owner.roleHint.': ['student', 'parent', 'teacher', 'school'],
   'owner.accounts.': ['student', 'parent', 'teacher', 'school'],
@@ -33,11 +33,12 @@ const dyn = {
   'theme.': ['system', 'light', 'dark'],
   'time.': ['morning', 'afternoon', 'evening'],
   'settings.sections.': ['profile', 'notifications', 'appearance', 'security', 'roles'],
-  'settings.pages.': ['student', 'parent', 'teacher', 'school', 'students', 'analytics', 'assignments', 'grades', 'schedule', 'progress', 'messages', 'notifications', 'settings', 'staff', 'gradebook', 'attendance', 'report-card', 'announcements', 'owner'],
-  'settings.notifItems.': ['assignment', 'grade', 'schedule', 'announcement', 'message', 'attendance'],
+  'settings.pages.': ['student', 'parent', 'teacher', 'school', 'students', 'analytics', 'assignments', 'grades', 'schedule', 'progress', 'messages', 'notifications', 'settings', 'staff', 'gradebook', 'attendance', 'report-card', 'announcements', 'owner', 'meetings', 'behavior'],
+  'settings.notifItems.': ['assignment', 'grade', 'schedule', 'announcement', 'message', 'attendance', 'behavior'],
+  'behavior.kind.': ['praise', 'remark'],
+  'behavior.cat.': ['participation', 'help', 'achievement', 'effort', 'homework', 'late', 'disruption', 'unprepared'],
   'notifications.types.': ['all', 'assignment', 'grade', 'schedule', 'announcement'],
   'notifications.groups.': ['Today', 'Earlier'],
-  'messages.': ['inbox', 'unread', 'sent'],
   'landing.nav.': ['platform', 'students', 'parents', 'schools', 'features', 'pricing'],
   'landing.footer.': ['product', 'solutions', 'account', 'platform', 'features', 'security', 'pricing', 'forStudents', 'forParents', 'forSchools', 'faq', 'signIn', 'createAccount'],
   'landing.mock.': ['overview', 'orgTerm', 'search', 'totalStudents', 'attendance', 'performance', 'active', 'perfCard', 'attCard', 'byYear', 'student', 'class', 'grade', 'progress', 'status', 'greeting', 'greetingSub', 'avgGrade', 'completed', 'upcoming', 'today', 'tasks', 'due'],

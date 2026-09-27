@@ -71,7 +71,12 @@ accounts and every change made in the app.
 - **Admin:** school KPIs and charts, 4,862 students (search, filters, sorting, pagination, bulk actions, add / archive,
   **move to another class**, CSV), **staff & classes** (add a teacher with a sign-in account, edit subject and classes,
   deactivate, change form tutors), school-wide attendance and gradebook (view), announcements for everyone, a group or a class.
-- Announcements, messages, notifications (read / mark all, per-type preferences), light / dark / system theme,
+- **Chat** between people (student / parent ↔ teachers and the school; staff ↔ anyone), live in server mode.
+- **Timetable editor** for the school admin with teacher and room clash checks; students, parents and teachers see their own week.
+- **Parent–teacher conferences**: teachers open time slots, parents book and cancel.
+- **Behaviour**: teachers add praise and remarks; students and parents see them.
+- **Term grades**: the gradebook proposes the average rounded half up, the teacher confirms, the grade goes to the report card.
+- Announcements, notifications (read / mark all, per-type preferences), light / dark / system theme,
   **install as an app** (Settings → Appearance).
 
 Grades, attendance, submissions, announcements and staff changes are saved in the browser, so they are shared between

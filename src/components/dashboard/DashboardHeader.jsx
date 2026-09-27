@@ -112,7 +112,7 @@ function NotificationBell() {
               onClick={() => {
                 markNotificationRead(n.id);
                 close();
-                navigate('/app/notifications');
+                navigate(n.link || '/app/notifications');
               }}
             >
               <NotificationIcon type={n.type} />

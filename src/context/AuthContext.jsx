@@ -158,9 +158,12 @@ function LocalAuthProvider({ children }) {
     return { ...safe, firstName: safe.name.split(/\s+/)[0] };
   }, [account]);
 
+  // Everyone who can be messaged in the demo (name and role only).
+  const directory = useMemo(() => (account ? accounts.filter((a) => !a.hidden).map((a) => ({ id: a.id, name: a.name, role: a.role })) : []), [account, accounts]);
+
   const value = useMemo(
-    () => ({ status: 'ready', remote: false, user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),
-    [user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount]
+    () => ({ status: 'ready', remote: false, directory, user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),
+    [directory, user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -23,7 +23,7 @@ export function DaySchedule({ lessons, isToday }) {
       {lessons.map((l) => {
         const st = lessonState(l, isToday);
         return (
-          <li key={l.start} className={st}>
+          <li key={l.key || l.start} className={st}>
             <span className="day-time num">
               {l.start}
               <em>{l.end}</em>
@@ -35,7 +35,7 @@ export function DaySchedule({ lessons, isToday }) {
               </strong>
               <span>
                 <span className="meta-item">
-                  <FiUser aria-hidden="true" /> {l.teacher}
+                  <FiUser aria-hidden="true" /> {l.who ?? l.teacher}
                 </span>
                 <span className="meta-item">
                   <FiMapPin aria-hidden="true" /> {tr(l.room)}
@@ -63,7 +63,7 @@ export function LessonBlock({ l, subjectTone, active }) {
       </span>
       <span>
         <FiUser aria-hidden="true" />
-        {l.teacher}
+        {l.who ?? l.teacher}
       </span>
       <span>
         <FiMapPin aria-hidden="true" />

@@ -67,7 +67,7 @@ export default function Notifications() {
                   <li key={n.id} className={n.unread ? 'is-unread' : ''}>
                     <NotificationIcon type={n.type} />
                     <div className="notif-full-main">
-                      <strong>{tr(n.title)}</strong>
+                      <strong>{n.link ? <Link to={n.link} onClick={() => markNotificationRead(n.id)}>{tr(n.title)}</Link> : tr(n.title)}</strong>
                       <p>{tr(n.text)}</p>
                       <span>{rel(n.at)}</span>
                     </div>

@@ -11,13 +11,14 @@ const DAYS = schoolDays(120);
 
 export default function ReportCard() {
   const [params, setParams] = useSearchParams();
-  const { role, students, getAttendance } = useApp();
+  const { role, students, getAttendance, finalsForStudent } = useApp();
   const { t, tr, ts, fmtDec, fmtPct, fmtDate } = useI18n();
   const childId = role === 'parent' && CHILDREN.some((c) => c.id === params.get('child')) ? params.get('child') : 'alex';
   const child = CHILDREN.find((c) => c.id === childId);
   const student = students.find((s) => s.id === child.studentId);
   const subjects = childId === 'alex' ? SUBJECT_GRADES : CHILD_SUBJECT_GRADES[childId];
   const overall = subjects.reduce((a, s) => a + s.average, 0) / subjects.length;
+  const finals = Object.fromEntries(finalsForStudent(child.studentId).map((f) => [f.subject, f.grade]));
 
   const records = student ? DAYS.map((d) => getAttendance(student, isoDay(d))) : [];
   const count = (st) => records.filter((r) => r === st).length;
@@ -78,6 +79,7 @@ export default function ReportCard() {
               <th>{t('grades.colTeacher')}</th>
               <th className="center">{t('reportCard.current')}</th>
               <th className="right">{t('grades.colAverage')}</th>
+              <th className="center">{t('reportCard.final')}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,6 +91,7 @@ export default function ReportCard() {
                   <GradeChip value={s.grade} />
                 </td>
                 <td className="right num">{fmtDec(s.average)}</td>
+                <td className="center">{finals[s.subject] ? <GradeChip value={finals[s.subject]} /> : <span className="t-muted">—</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -96,6 +99,7 @@ export default function ReportCard() {
             <tr>
               <td colSpan={3}>{t('reportCard.overall')}</td>
               <td className="right num">{fmtDec(overall, 2)}</td>
+              <td />
             </tr>
           </tfoot>
         </table>
@@ -122,7 +126,9 @@ export default function ReportCard() {
           </div>
         </section>
 
-        <p className="rc-scale">{t('reportCard.scale')}</p>
+        <p className="rc-scale">
+          {t('reportCard.scale')} {t('reportCard.finalNote')}
+        </p>
 
         <footer className="rc-sign">
           <div>

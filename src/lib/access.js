@@ -23,6 +23,8 @@ export const ACCESS = {
   messages: ['student', 'parent', 'teacher', 'school'],
   notifications: ['student', 'parent', 'teacher', 'school'],
   settings: ['student', 'parent', 'teacher', 'school'],
+  meetings: ['parent', 'teacher', 'school'],
+  behavior: ['student', 'parent', 'teacher', 'school'],
   owner: [],
 };
 

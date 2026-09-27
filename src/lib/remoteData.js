@@ -6,10 +6,23 @@ import { supabase, fetchAll } from './supabase.js';
  * Row Level Security in the database decides who may read and write what.
  */
 
-const DATA_TABLES = ['assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'messages', 'reads', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
-export const LIVE_TABLES = ['assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
+// Personal chats are not part of backups or resets: only the two people in a conversation can read it.
+const DATA_TABLES = ['timetable', 'meeting_slots', 'behavior', 'final_grades', 'assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'messages', 'reads', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
+export const LIVE_TABLES = ['chat_messages', 'timetable', 'meeting_slots', 'behavior', 'final_grades', 'assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
 
 const isoDate = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
+
+/** My chat messages (sent and received), oldest first. */
+export async function loadChat(uid) {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*')
+    .or(`sender.eq.${uid},recipient.eq.${uid}`)
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  return data.reverse().map((m) => ({ id: m.id, from: m.sender, to: m.recipient, body: m.body, at: m.created_at, readAt: m.read_at }));
+}
 
 export async function loadAll({ uid, role, myClasses }) {
   const allClasses = role === 'school' || role === 'owner';
@@ -30,6 +43,14 @@ export async function loadAll({ uid, role, myClasses }) {
     fetchAll('teacher_overrides', undefined, ['teacher_id']),
     fetchAll('tutors', undefined, ['class_name']),
     supabase.from('profiles').select('prefs').eq('id', uid).maybeSingle(),
+  ]);
+  const [timetable, slots, behavior, finals, chat, contacts] = await Promise.all([
+    fetchAll('timetable', undefined, ['class_name', 'day', 'period']),
+    fetchAll('meeting_slots', undefined, ['starts_at', 'id']),
+    fetchAll('behavior', (q) => q.order('at', { ascending: false }).limit(1000)),
+    fetchAll('final_grades', byClass('class_name'), ['class_name', 'student_id', 'subject']),
+    loadChat(uid),
+    supabase.rpc('chat_contacts').then((r) => (r.error ? [] : r.data || [])),
   ]);
 
   const attendanceMap = {};
@@ -65,6 +86,12 @@ export async function loadAll({ uid, role, myClasses }) {
     teacherEdits: Object.fromEntries(teacherOverrides.map((o) => [o.teacher_id, o.patch])),
     tutors: Object.fromEntries(tutors.map((t) => [t.class_name, t.teacher_id])),
     prefs: { [uid]: me?.data?.prefs || {} },
+    timetable: Object.fromEntries(timetable.map((r) => [`${r.class_name}|${r.day}|${r.period}`, r.cleared ? null : { subject: r.subject, teacher: r.teacher_name, teacherId: r.teacher_id, room: r.room }])),
+    meetings: slots.map((m) => ({ id: m.id, teacherId: m.teacher_id, teacherName: m.teacher_name, startsAt: m.starts_at, duration: m.duration_min, location: m.location, bookedBy: m.booked_by, bookedName: m.booked_name, child: m.child, note: m.note || '', bookedAt: m.booked_at })),
+    behavior: behavior.map((b) => ({ id: b.id, studentId: b.student_id, cls: b.class_name, kind: b.kind, category: b.category, note: b.note || '', author: b.author, authorId: b.author_id, at: b.at })),
+    finals: Object.fromEntries(finals.map((f) => [`${f.term}|${f.class_name}|${f.student_id}|${f.subject}`, { grade: f.grade, at: f.confirmed_at }])),
+    chat,
+    contacts: contacts.map((c) => ({ id: c.id, name: c.name, role: c.role })),
   };
 }
 
@@ -108,11 +135,38 @@ export const api = {
   addTeacher: (t) => insert('teachers_added', { id: t.id, data: t }),
   editTeacher: (id, patch) => upsert('teacher_overrides', { teacher_id: id, patch }, 'teacher_id'),
   setTutor: (cls, teacherId) => upsert('tutors', { class_name: cls, teacher_id: teacherId }, 'class_name'),
+  setTimetableCell: ({ cls, day, p, cell }) =>
+    upsert(
+      'timetable',
+      cell
+        ? { class_name: cls, day, period: p, subject: cell.subject, teacher_id: cell.teacherId || null, teacher_name: cell.teacher, room: typeof cell.room === 'object' ? cell.room.en : cell.room, cleared: false }
+        : { class_name: cls, day, period: p, subject: null, teacher_id: null, teacher_name: null, room: null, cleared: true },
+      'class_name,day,period'
+    ),
+  sendChat: ({ to, body }) => insert('chat_messages', { recipient: to, body }),
+  markChatRead: (otherId) => supabase.rpc('chat_mark_read', { other: otherId }).then(check),
+  addSlots: (rows) => insert('meeting_slots', rows.map((m) => ({ id: m.id, teacher_name: m.teacherName, starts_at: m.startsAt, duration_min: m.duration, location: m.location }))),
+  removeSlot: (id) => supabase.from('meeting_slots').delete().eq('id', id).then(check),
+  bookSlot: (id, child, note) =>
+    supabase.rpc('book_slot', { slot: id, child_name: child, note_text: note }).then((r) => {
+      check(r);
+      if (r.data === false) throw new Error('slot-taken');
+    }),
+  cancelBooking: (id) => supabase.rpc('cancel_booking', { slot: id }).then(check),
+  addBehavior: (b) => insert('behavior', { id: b.id, student_id: b.studentId, class_name: b.cls, kind: b.kind, category: b.category, note: b.note, author: b.author }),
+  removeBehavior: (id) => supabase.from('behavior').delete().eq('id', id).then(check),
+  setFinals: async ({ term, cls, subject, list, logs }) => {
+    const set = list.filter((x) => x.grade).map((x) => ({ term, class_name: cls, student_id: x.studentId, subject, grade: x.grade }));
+    const clear = list.filter((x) => !x.grade).map((x) => x.studentId);
+    if (set.length) await upsert('final_grades', set, 'term,class_name,student_id,subject');
+    if (clear.length) await supabase.from('final_grades').delete().eq('term', term).eq('class_name', cls).eq('subject', subject).in('student_id', clear).then(check);
+    if (logs.length) await insert('grade_log', logs);
+  },
   setPrefs: (uid, prefs) => supabase.from('profiles').update({ prefs }).eq('id', uid).then(check),
   resetAll: async () => {
     for (const t of DATA_TABLES) {
       // Every table has one of these columns; the filter just means "all rows".
-      const col = { attendance: 'day', marks: 'class_name', gb_columns: 'class_name', reads: 'kind', student_overrides: 'student_id', teacher_overrides: 'teacher_id', tutors: 'class_name', submissions: 'assignment_id' }[t] || 'id';
+      const col = { timetable: 'class_name', final_grades: 'term', attendance: 'day', marks: 'class_name', gb_columns: 'class_name', reads: 'kind', student_overrides: 'student_id', teacher_overrides: 'teacher_id', tutors: 'class_name', submissions: 'assignment_id' }[t] || 'id';
       await supabase.from(t).delete().not(col, 'is', null).then(check);
     }
   },
@@ -128,7 +182,7 @@ export const api = {
 /** Live updates: calls onChange (debounced by the caller) whenever shared data changes on the server. */
 export function subscribe(onChange) {
   const channel = supabase.channel('educore-live');
-  for (const table of LIVE_TABLES) channel.on('postgres_changes', { event: '*', schema: 'public', table }, onChange);
+  for (const table of LIVE_TABLES) channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table));
   channel.subscribe();
   return () => supabase.removeChannel(channel);
 }

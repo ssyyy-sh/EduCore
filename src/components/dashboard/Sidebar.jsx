@@ -24,14 +24,14 @@ function Item({ it, collapsed, onNavigate, count }) {
 }
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }) {
-  const { role, isOwner, notifications, messages, students } = useApp();
+  const { role, isOwner, notifications, chatUnread, students } = useApp();
   const { user } = useAuth();
   const { t, fmtNum } = useI18n();
   const meta = useRoleMeta();
   const nav = NAV[role];
   const counts = {
     notifications: notifications.filter((n) => n.unread).length,
-    messages: messages.filter((m) => m.unread && m.box === 'inbox').length,
+    messages: chatUnread,
   };
   const used = students.length;
 
