@@ -23,6 +23,7 @@ import Attendance from './pages/Attendance.jsx';
 import Staff from './pages/Staff.jsx';
 import Announcements from './pages/Announcements.jsx';
 import ReportCard from './pages/ReportCard.jsx';
+import Owner from './pages/Owner.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { homeFor } from './lib/access.js';
 import { Toasts } from './components/ui/index.jsx';
@@ -83,6 +84,7 @@ export default function App() {
           <Route path="staff" element={<Staff />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="report-card" element={<ReportCard />} />
+          <Route path="owner" element={<Owner />} />
           <Route path="*" element={<NotFound inApp />} />
         </Route>
         <Route path="*" element={<NotFound />} />

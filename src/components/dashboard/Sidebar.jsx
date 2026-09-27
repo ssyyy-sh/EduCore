@@ -1,7 +1,7 @@
 import { NavLink, Link } from 'react-router-dom';
 import { FiChevronsLeft, FiChevronsRight, FiX } from 'react-icons/fi';
 import { LogoMark } from '../Logo.jsx';
-import { NAV, SETTINGS_ITEM } from './nav.js';
+import { NAV, SETTINGS_ITEM, OWNER_ITEM } from './nav.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
@@ -24,7 +24,7 @@ function Item({ it, collapsed, onNavigate, count }) {
 }
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }) {
-  const { role, notifications, messages, students } = useApp();
+  const { role, isOwner, notifications, messages, students } = useApp();
   const { user } = useAuth();
   const { t, fmtNum } = useI18n();
   const meta = useRoleMeta();
@@ -53,7 +53,15 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
         </div>
 
         <nav className="side-nav">
-          <p className="side-section side-label">{t('nav.workspace')}</p>
+          {isOwner && (
+            <>
+              <p className="side-section side-label">{t('nav.ownerSection')}</p>
+              <ul>
+                <Item it={OWNER_ITEM} collapsed={collapsed} onNavigate={onCloseMobile} />
+              </ul>
+            </>
+          )}
+          <p className="side-section side-label">{isOwner ? t('nav.viewingAs', { role: t(`roles.${role}`) }) : t('nav.workspace')}</p>
           <ul>
             {nav.main.map((it) => (
               <Item key={it.key} it={it} collapsed={collapsed} onNavigate={onCloseMobile} />

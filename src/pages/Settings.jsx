@@ -6,7 +6,7 @@ import { Switch, Avatar, Modal } from '../components/ui/index.jsx';
 import { useApp, NOTIF_TYPES } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n, LANGS } from '../i18n/I18nContext.jsx';
-import { ACCESS, ROLE_KEYS } from '../lib/access.js';
+import { ROLE_KEYS, canAccess } from '../lib/access.js';
 import { MIN_PASSWORD } from '../config.js';
 import { useRoleMeta } from '../components/dashboard/useRoleMeta.js';
 import { useInstall } from '../lib/pwa.js';
@@ -56,6 +56,9 @@ export default function Settings() {
   const [params] = useSearchParams();
   const [section, setSection] = useState(() => (SECTIONS.some((s) => s.key === params.get('section')) ? params.get('section') : 'profile'));
   const [name, setName] = useState(user.name);
+  const isOwnerAcc = user.role === 'owner';
+  const cols = isOwnerAcc ? [...ROLE_KEYS, 'owner'] : ROLE_KEYS;
+  const pageRows = isOwnerAcc ? [...PAGE_ORDER, 'owner'] : PAGE_ORDER;
   const [nameErr, setNameErr] = useState('');
   const [pw, setPw] = useState(null); // { current, next, confirm, error }
 
@@ -238,9 +241,13 @@ export default function Settings() {
                       </strong>
                       <span>{t('settings.passwordHint', { n: MIN_PASSWORD })}</span>
                     </div>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPw({ current: '', next: '', confirm: '', error: '' })}>
-                      {t('settings.change')}
-                    </button>
+                    {isOwnerAcc ? (
+                      <span className="hint">{t('settings.ownerPassword')}</span>
+                    ) : (
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPw({ current: '', next: '', confirm: '', error: '' })}>
+                        {t('settings.change')}
+                      </button>
+                    )}
                   </li>
                   <li>
                     <div>
@@ -279,7 +286,7 @@ export default function Settings() {
                     <thead>
                       <tr>
                         <th>{t('settings.page')}</th>
-                        {ROLE_KEYS.map((r) => (
+                        {cols.map((r) => (
                           <th key={r} className={r === user.role ? 'is-you' : ''}>
                             {t(r === 'school' ? 'roles.schoolShort' : `roles.${r}`)}
                           </th>
@@ -287,12 +294,12 @@ export default function Settings() {
                       </tr>
                     </thead>
                     <tbody>
-                      {PAGE_ORDER.map((p) => (
+                      {pageRows.map((p) => (
                         <tr key={p}>
                           <td className="cell-strong">{t(`settings.pages.${p}`)}</td>
-                          {ROLE_KEYS.map((r) => (
+                          {cols.map((r) => (
                             <td key={r} className={r === user.role ? 'is-you' : ''}>
-                              {ACCESS[p].includes(r) ? <FiCheck className="t-success" aria-label={t('settings.allowed')} /> : <FiMinus className="t-muted" aria-label={t('settings.denied')} />}
+                              {canAccess(r, p) ? <FiCheck className="t-success" aria-label={t('settings.allowed')} /> : <FiMinus className="t-muted" aria-label={t('settings.denied')} />}
                             </td>
                           ))}
                         </tr>

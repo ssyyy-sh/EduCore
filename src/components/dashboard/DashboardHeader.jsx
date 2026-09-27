@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FiMenu, FiBell, FiSun, FiMoon, FiMonitor, FiSettings, FiLogOut, FiHome, FiChevronRight, FiBookOpen, FiUser, FiUsers, FiBriefcase } from 'react-icons/fi';
+import { FiMenu, FiBell, FiSun, FiMoon, FiMonitor, FiSettings, FiLogOut, FiHome, FiChevronRight, FiBookOpen, FiUser, FiUsers, FiBriefcase, FiKey, FiChevronDown, FiCheck } from 'react-icons/fi';
 import { useApp } from '../../context/AppContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
@@ -13,9 +13,65 @@ import { useRelTime } from './useRelTime.js';
 
 const ROLE_ICONS = { student: FiBookOpen, parent: FiUser, teacher: FiUsers, school: FiBriefcase };
 
-function RoleBadge() {
-  const { role } = useApp();
+/** Owner: switch which role's view is shown. */
+function ViewAsSwitch() {
+  const { role, setViewAs } = useApp();
   const { t } = useI18n();
+  const navigate = useNavigate();
+  return (
+    <Popover
+      role="menu"
+      label={t('header.viewAs')}
+      style={{ minWidth: 220 }}
+      renderTrigger={({ ref, open, toggle }) => (
+        <button ref={ref} type="button" className="role-badge role-badge-owner" aria-haspopup="menu" aria-expanded={open} onClick={toggle} title={t('header.viewAs')}>
+          <FiKey aria-hidden="true" />
+          <span className="role-badge-label">
+            {t('roles.owner')} · {t(`roles.${role}`)}
+          </span>
+          <FiChevronDown aria-hidden="true" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          <div className="user-menu-head">
+            <em>{t('header.viewAs')}</em>
+          </div>
+          {['student', 'parent', 'teacher', 'school'].map((r) => {
+            const I = ROLE_ICONS[r];
+            return (
+              <button
+                key={r}
+                type="button"
+                role="menuitemradio"
+                aria-checked={role === r}
+                className={`dropdown-item ${role === r ? 'is-selected' : ''}`}
+                onClick={() => {
+                  close();
+                  setViewAs(r);
+                  navigate(`/app/${r}`);
+                }}
+              >
+                <I /> {t(`roles.${r}`)}
+                {role === r && <FiCheck className="check" />}
+              </button>
+            );
+          })}
+          <div className="dropdown-sep" />
+          <Link to="/app/owner" className="dropdown-item" role="menuitem" onClick={close}>
+            <FiKey /> {t('nav.owner')}
+          </Link>
+        </>
+      )}
+    </Popover>
+  );
+}
+
+function RoleBadge() {
+  const { role, isOwner } = useApp();
+  const { t } = useI18n();
+  if (isOwner) return <ViewAsSwitch />;
   const Icon = ROLE_ICONS[role];
   return (
     <span className="role-badge" title={t(`roles.${role}`)}>

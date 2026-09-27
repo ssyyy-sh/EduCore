@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { DEMO_ACCOUNTS, MIN_PASSWORD } from '../config.js';
+import { DEMO_ACCOUNTS, MIN_PASSWORD, OWNER_ACCOUNT } from '../config.js';
+import { hashPassword } from '../lib/hash.js';
 import { readJSON, writeJSON, removeKey } from '../lib/storage.js';
 
 /*
@@ -12,33 +13,30 @@ import { readJSON, writeJSON, removeKey } from '../lib/storage.js';
 const ACCOUNTS_KEY = 'educore.accounts.v1';
 const SESSION_KEY = 'educore.session.v1';
 
-// cyrb53 — small non-cryptographic hash, enough to avoid storing plain passwords in the demo.
-function cyrb53(str, seed = 0) {
-  let h1 = 0xdeadbeef ^ seed;
-  let h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
-const hashPassword = (email, password) => cyrb53(`${email.toLowerCase()}::${password}`, 7);
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 
 function loadAccounts() {
   const stored = readJSON(ACCOUNTS_KEY, []);
-  const list = Array.isArray(stored) ? stored.filter((a) => a && a.id && a.email && a.role && a.passHash) : [];
+  // Only the configured Owner account may have the owner role.
+  const list = Array.isArray(stored)
+    ? stored.filter((a) => a && a.id && a.email && a.role && a.passHash).map((a) => (a.role === 'owner' && a.id !== OWNER_ACCOUNT.id ? { ...a, role: 'student' } : a))
+    : [];
   // Make sure every demo account exists (its password can still be changed by the user).
   for (const d of DEMO_ACCOUNTS) {
     if (!list.some((a) => a.id === d.id)) {
       list.push({ id: d.id, role: d.role, name: d.name, email: d.email, passHash: hashPassword(d.email, d.password), demo: true });
     }
   }
+  // Hidden Owner account: email and password always come from src/config.js.
+  const owner = { id: OWNER_ACCOUNT.id, role: 'owner', name: OWNER_ACCOUNT.name, email: normEmail(OWNER_ACCOUNT.email), passHash: OWNER_ACCOUNT.passHash, hidden: true };
+  const oi = list.findIndex((a) => a.id === owner.id);
+  if (oi >= 0) list[oi] = { ...list[oi], email: owner.email, passHash: owner.passHash, role: 'owner', hidden: true };
+  else list.push(owner);
   return list;
 }
+
+const newId = () => `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+const ROLES = ['student', 'parent', 'teacher', 'school'];
 
 const AuthContext = createContext(null);
 
@@ -71,7 +69,7 @@ export function AuthProvider({ children }) {
       if (accounts.some((a) => a.email.toLowerCase() === e)) return { ok: false, error: 'exists' };
       if (String(password).length < MIN_PASSWORD) return { ok: false, error: 'weak' };
       const acc = {
-        id: `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        id: newId(),
         role,
         name: String(name).trim(),
         email: e,
@@ -92,11 +90,39 @@ export function AuthProvider({ children }) {
     ({ name, email, password, role }) => {
       const e = normEmail(email);
       if (accounts.some((a) => a.email.toLowerCase() === e)) return { ok: false, error: 'exists' };
-      const acc = { id: `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, role, name: String(name).trim(), email: e, passHash: hashPassword(e, password), createdAt: new Date().toISOString() };
+      const acc = { id: newId(), role, name: String(name).trim(), email: e, passHash: hashPassword(e, password), createdAt: new Date().toISOString() };
       persist([...accounts, acc]);
       return { ok: true, id: acc.id };
     },
     [accounts, persist]
+  );
+
+  // ----- Owner only -----
+  const isOwner = account?.role === 'owner';
+  const allAccounts = useMemo(() => (isOwner ? accounts.map(({ passHash: _h, ...a }) => a) : []), [isOwner, accounts]);
+  const setAccountRole = useCallback(
+    (id, role) => {
+      if (!isOwner || !ROLES.includes(role)) return false;
+      persist(accounts.map((a) => (a.id === id && a.role !== 'owner' && !a.demo ? { ...a, role } : a)));
+      return true;
+    },
+    [isOwner, accounts, persist]
+  );
+  const resetPassword = useCallback(
+    (id, password) => {
+      if (!isOwner) return false;
+      persist(accounts.map((a) => (a.id === id && a.role !== 'owner' ? { ...a, passHash: hashPassword(a.email, password) } : a)));
+      return true;
+    },
+    [isOwner, accounts, persist]
+  );
+  const deleteAccount = useCallback(
+    (id) => {
+      if (!isOwner) return false;
+      persist(accounts.filter((a) => !(a.id === id && a.role !== 'owner' && !a.demo)));
+      return true;
+    },
+    [isOwner, accounts, persist]
   );
 
   const logout = useCallback(() => {
@@ -114,7 +140,7 @@ export function AuthProvider({ children }) {
 
   const changePassword = useCallback(
     (current, next) => {
-      if (!account) return { ok: false, error: 'wrong' };
+      if (!account || account.role === 'owner') return { ok: false, error: 'wrong' };
       if (account.passHash !== hashPassword(account.email, current)) return { ok: false, error: 'wrong' };
       if (String(next).length < MIN_PASSWORD) return { ok: false, error: 'weak' };
       persist(accounts.map((a) => (a.id === account.id ? { ...a, passHash: hashPassword(a.email, next) } : a)));
@@ -129,7 +155,10 @@ export function AuthProvider({ children }) {
     return { ...safe, firstName: safe.name.split(/\s+/)[0] };
   }, [account]);
 
-  const value = useMemo(() => ({ user, login, register, createAccount, logout, updateProfile, changePassword }), [user, login, register, createAccount, logout, updateProfile, changePassword]);
+  const value = useMemo(
+    () => ({ user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),
+    [user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

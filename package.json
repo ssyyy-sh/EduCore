@@ -9,7 +9,8 @@
     "build:single": "vite build --mode single",
     "lint": "eslint src",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "build:docs": "node scripts/build-docs.mjs"
+    "build:docs": "node scripts/build-docs.mjs",
+    "owner-password": "node scripts/owner-password.mjs"
   },
   "keywords": [],
   "author": "",

@@ -60,3 +60,12 @@ export async function openFile(meta) {
 }
 
 export const formatSize = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+/** Delete every stored file (used by the Owner's "reset demo data"). */
+export function clearFiles() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') return resolve();
+    const req = indexedDB.deleteDatabase(DB);
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  });
+}

@@ -1,4 +1,4 @@
-import { FiHome, FiCalendar, FiCheckSquare, FiAward, FiTrendingUp, FiMessageSquare, FiBell, FiSettings, FiUsers, FiBarChart2, FiBookOpen, FiUserCheck, FiBriefcase, FiVolume2 } from 'react-icons/fi';
+import { FiHome, FiCalendar, FiCheckSquare, FiAward, FiTrendingUp, FiMessageSquare, FiBell, FiSettings, FiUsers, FiBarChart2, FiBookOpen, FiUserCheck, FiBriefcase, FiVolume2, FiKey } from 'react-icons/fi';
 
 const ICONS = {
   overview: FiHome,
@@ -15,6 +15,7 @@ const ICONS = {
   attendance: FiUserCheck,
   staff: FiBriefcase,
   announcements: FiVolume2,
+  owner: FiKey,
 };
 
 // Label = t(`nav.${key}`)
@@ -41,6 +42,7 @@ export const NAV = {
 };
 
 export const SETTINGS_ITEM = item('settings', '/app/settings');
+export const OWNER_ITEM = item('owner', '/app/owner');
 
 /** Route segment → nav label key */
 export const PAGE_KEYS = {
@@ -62,4 +64,5 @@ export const PAGE_KEYS = {
   staff: 'staff',
   announcements: 'announcements',
   'report-card': 'grades',
+  owner: 'owner',
 };

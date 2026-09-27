@@ -17,6 +17,19 @@ export const DEMO_ACCOUNTS = [
 export const MIN_PASSWORD = 8;
 
 /**
+ * Hidden Owner account — full access to every page, can view the app as any role and manage all accounts.
+ * It is not listed on the sign-in page and can't be chosen on sign-up.
+ * Change the email/password with:  npm run owner-password -- "New-Password" owner@example.com
+ * (only a hash of the password is stored here).
+ */
+export const OWNER_ACCOUNT = {
+  id: 'owner',
+  name: 'Owner',
+  email: 'owner@educore.app',
+  passHash: '26ljrauhpcj',
+};
+
+/**
  * Your own photos instead of the stock ones.
  * 1. Put the files into the public/images/ folder.
  * 2. Write the file name next to the place where it should appear, e.g. classroom: 'classroom.jpg'.

@@ -6,7 +6,7 @@ import DashboardHeader from '../components/dashboard/DashboardHeader.jsx';
 import { NAV } from '../components/dashboard/nav.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
-import { canAccess, homeFor, ACCESS } from '../lib/access.js';
+import { canAccess, homeFor, ACCESS, viewRoleFor } from '../lib/access.js';
 import { EmptyState } from '../components/ui/index.jsx';
 import { readJSON, writeJSON } from '../lib/storage.js';
 
@@ -52,7 +52,7 @@ function NoAccess({ role }) {
 
 export default function AppLayout() {
   const { pathname } = useLocation();
-  const { role } = useApp();
+  const { role, isOwner, setViewAs } = useApp();
   const [collapsed, setCollapsed] = useState(() => readJSON('educore.sidebar', false) === true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -66,7 +66,12 @@ export default function AppLayout() {
 
   const page = pathname.split('/')[2] || '';
   const known = page in ACCESS;
-  const allowed = !known || canAccess(role, page);
+  const allowed = !known || canAccess(isOwner ? 'owner' : role, page);
+  // Owner: switch "view as" to a role that owns this page (e.g. /app/staff → school admin).
+  const wanted = isOwner && known && page !== 'owner' ? viewRoleFor(page, role) : role;
+  useEffect(() => {
+    if (wanted !== role) setViewAs(wanted);
+  }, [wanted, role, setViewAs]);
 
   return (
     <div className={`app ${collapsed ? 'is-collapsed' : ''}`}>
@@ -74,7 +79,7 @@ export default function AppLayout() {
       <div className="app-main">
         <DashboardHeader onOpenMobile={() => setMobileOpen(true)} />
         <main className="app-content" key={pathname}>
-          {allowed ? <Outlet /> : <NoAccess role={role} />}
+          {!allowed ? <NoAccess role={role} /> : wanted !== role ? null : <Outlet />}
         </main>
       </div>
       <MobileTabBar onMore={() => setMobileOpen(true)} />

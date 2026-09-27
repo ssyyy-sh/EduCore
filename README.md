@@ -29,6 +29,11 @@ The Sidebar, the route guard and the table in *Settings → Roles & access* all 
 | Teacher | daniel.hayes@northbridge.edu | Teacher2026! |
 | School admin | olivia.chen@northbridge.edu | Admin2026! |
 
+**Hidden Owner account.** Not listed on the sign-in page and not available on sign-up. Opens every page, can view the app
+as any of the four roles (switch in the header), and has an *Owner console* (`/app/owner`): all accounts, change role,
+reset password, delete, data backup and reset. Email and password are set in `src/config.js` (`OWNER_ACCOUNT`, only a hash
+of the password is stored). Change them with `npm run owner-password -- "New-Password" you@example.com`, then `npm run build:docs`.
+
 New accounts can be created on `/register` (student, parent, teacher or school admin).
 The demo logins are listed on the sign-in page; turn that off with `SHOW_DEMO_ACCOUNTS = false` in `src/config.js`.
 

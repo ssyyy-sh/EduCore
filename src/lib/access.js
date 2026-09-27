@@ -23,7 +23,11 @@ export const ACCESS = {
   messages: ['student', 'parent', 'teacher', 'school'],
   notifications: ['student', 'parent', 'teacher', 'school'],
   settings: ['student', 'parent', 'teacher', 'school'],
+  owner: [],
 };
 
-export const canAccess = (role, page) => !!ACCESS[page]?.includes(role);
+// The hidden Owner role opens every page.
+export const canAccess = (role, page) => (role === 'owner' ? page in ACCESS : !!ACCESS[page]?.includes(role));
 export const homeFor = (role) => `/app/${role}`;
+/** For the Owner: which role's view a page belongs to (the first role that can open it). */
+export const viewRoleFor = (page, current) => (ACCESS[page]?.includes(current) ? current : ACCESS[page]?.[0] || current);

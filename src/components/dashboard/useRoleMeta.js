@@ -7,6 +7,7 @@ export function useRoleMeta() {
   const { t } = useI18n();
   if (!user) return '';
   const role = t(`roles.${user.role}`);
+  if (user.role === 'owner') return t('roles.ownerMeta');
   if (user.role === 'school') return user.org ? `${role} · ${user.org}` : role;
   if (!user.demo) return role;
   const detail = { student: t('roles.metaStudent'), parent: t('roles.metaParent'), teacher: t('roles.metaTeacher') }[user.role];

@@ -88,7 +88,17 @@ function loadData() {
 
 export function AppProvider({ children }) {
   const { user } = useAuth();
-  const role = user?.role ?? null;
+  const isOwner = user?.role === 'owner';
+  // The Owner sees the app through one of the four roles at a time ("view as").
+  const [viewAs, setViewAsState] = useState(() => {
+    const v = readJSON('educore.viewAs', 'school');
+    return ['student', 'parent', 'teacher', 'school'].includes(v) ? v : 'school';
+  });
+  const setViewAs = useCallback((r) => {
+    setViewAsState(r);
+    writeJSON('educore.viewAs', r);
+  }, []);
+  const role = isOwner ? viewAs : user?.role ?? null;
   const [theme, setThemeState] = useState(readTheme);
   const [toasts, setToasts] = useState([]);
   const [data, setData] = useState(loadData);
@@ -388,6 +398,7 @@ export function AppProvider({ children }) {
       },
       editTeacher: (id, patch) => update((d) => ({ ...d, teacherEdits: { ...d.teacherEdits, [id]: { ...(d.teacherEdits[id] || {}), ...patch } } })),
       setTutor: (cls, teacherId) => update((d) => ({ ...d, tutors: { ...d.tutors, [cls]: teacherId } })),
+      resetData: () => update(() => ({ ...EMPTY })),
       setPref: (type, on) =>
         update((d) => {
           if (!user) return d;
@@ -399,6 +410,9 @@ export function AppProvider({ children }) {
   const value = useMemo(
     () => ({
       role,
+      isOwner,
+      viewAs,
+      setViewAs,
       theme,
       setTheme,
       toast,
@@ -423,7 +437,7 @@ export function AppProvider({ children }) {
       isoDay,
       ...actions,
     }),
-    [role, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
+    [role, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
