@@ -12,6 +12,7 @@ npm install
 npm run dev           # http://localhost:5173
 npm run build         # production build → dist/
 npm run build:single  # the whole app as one HTML file → dist-single/index.html
+npm run build:docs    # update the GitHub Pages site: builds and copies everything into docs/
 npm run lint          # ESLint
 npm run check:i18n    # every translation key exists in en / ru / uz
 ```
@@ -47,12 +48,48 @@ The demo logins are listed on the sign-in page; turn that off with `SHOW_DEMO_AC
 ## What works in the demo
 
 - Sign in / register / sign out, change password, role-restricted pages (direct links to other roles' pages show "not available").
-- Student: dashboard, assignments (mark as submitted), schedule (week/day, **.ics download**), grades (**CSV export**), progress.
-- Parent: three children with a switcher, notifications, pre-filled message to the form tutor.
-- Teacher: classes, roster with attendance that is saved for the day, publish assignments.
-- Admin: school KPIs and charts with a period filter, 4,862 students with search, 5 filters, sorting, pagination, bulk actions,
-  add / archive students, **CSV export**, import template.
-- Messages (inbox, sent, unread, compose, reply), notifications (read / mark all, per-type preferences), light / dark / system theme.
+- **Student:** dashboard, assignments with **file submission** (PDF, Word, text, photos; up to 5 files of 5 MB) and a comment,
+  the teacher's grade and feedback, schedule (**.ics download**), grades, **attendance calendar**, **report card** (print / PDF), progress.
+- **Parent:** three children with a switcher — grades, attendance calendar, report card for each child; notifications; message to the form tutor.
+- **Teacher:** **gradebook** (marks 2–5 per student and column, add / delete columns, averages, CSV), **attendance** by day
+  (present / late / absent, history, CSV), grading of submitted work (the grade goes into the gradebook and to the student),
+  publish assignments and class announcements.
+- **Admin:** school KPIs and charts, 4,862 students (search, filters, sorting, pagination, bulk actions, add / archive,
+  **move to another class**, CSV), **staff & classes** (add a teacher with a sign-in account, edit subject and classes,
+  deactivate, change form tutors), school-wide attendance and gradebook (view), announcements for everyone, a group or a class.
+- Announcements, messages, notifications (read / mark all, per-type preferences), light / dark / system theme,
+  **install as an app** (Settings → Appearance).
+
+Grades, attendance, submissions, announcements and staff changes are saved in the browser, so they are shared between
+the demo accounts on the same device (e.g. grade as the teacher, then sign in as the student to see it).
+Submitted files are kept in the browser's IndexedDB.
+
+## Publishing on GitHub Pages
+
+The site is served from the `docs/` folder of the `main` branch (*Settings → Pages → Deploy from a branch → main / docs*).
+After any change:
+
+```bash
+npm run build:docs
+git add .
+git commit -m "Update site"
+git push
+```
+
+`build:docs` also copies icons, `manifest.webmanifest`, `sw.js`, the link-preview image and your photos.
+
+**Own domain.** Put a file named `CNAME` in the project root with one line — your domain (e.g. `school.example.com`),
+set `"homepage"` in `package.json` to `https://school.example.com/` (used in link previews), run `npm run build:docs` and push.
+At your domain registrar add a `CNAME` record pointing to `ssyyy-sh.github.io`, then enter the domain in *Settings → Pages → Custom domain*
+and tick *Enforce HTTPS* once it is available.
+
+**Link previews.** Title, description and `public/og-image.png` (1200×630) are set in `index.html`. Replace the image to change the preview.
+
+**Install as an app.** The site has a web manifest, icons and a service worker (works offline after the first visit).
+On Android / desktop Chrome and Edge use *Install*; on iPhone — Safari → Share → *Add to Home Screen*.
+
+**Own photos.** Put files into `public/images/` and list them in `OWN_PHOTOS` in `src/config.js`
+(e.g. `campus: 'campus.jpg'`). If a file can't be loaded, the stock photo is shown.
 
 ## Structure
 
@@ -61,7 +98,7 @@ src/
   config.js               demo accounts, feature flags
   i18n/                   I18nContext + en / ru / uz dictionaries
   context/                AuthContext (accounts, session), AppContext (theme, toasts, shared data)
-  lib/                    access map, CSV / ICS download, safe storage
+  lib/                    access map, CSV / ICS download, safe storage, files (IndexedDB), PWA
   components/
     landing/              Navbar, Hero, Trust, ProblemSolution, Features, FeatureCard, Showcase,
                           DashboardPreview, Security, Pricing, FAQ, FinalCTA, Footer
@@ -70,11 +107,13 @@ src/
     ui/                   Select, Menu, Popover, SearchInput, Status, Avatar, Bar, Segmented,
                           Pagination, Modal, EmptyState, Skeleton, Switch, Toasts, Photo
     LangSwitch.jsx, Logo.jsx
-  pages/                  Home, Login, Register, 4 dashboards, Students, Assignments, Grades,
-                          Schedule, Progress, AnalyticsPage, Messages, Notifications, Settings, NotFound
+  pages/                  Home, Login, Register, 4 dashboards, Students, Staff, Gradebook, Attendance,
+                          Assignments, Grades, ReportCard, Schedule, Progress, AnalyticsPage,
+                          Announcements, Messages, Notifications, Settings, NotFound
   styles/                 tokens.css (light + dark), base.css, ui.css, landing.css, app.css
   data/                   mock.js (demo school: Northbridge Academy), images.js
+public/                   icons, manifest, service worker, link-preview image, images/ (your photos)
 scripts/check-i18n.mjs    translation consistency check
+scripts/build-docs.mjs    builds the site into docs/ for GitHub Pages
+docs/                     the published site (generated — don't edit by hand)
 ```
-
-Photos load from Unsplash — replace `src/data/images.js` with your school's own images.

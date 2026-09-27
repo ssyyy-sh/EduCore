@@ -35,7 +35,7 @@ export default function Notifications() {
               className="btn btn-secondary"
               disabled={!unread}
               onClick={() => {
-                markAllNotificationsRead();
+                markAllNotificationsRead(notifications.map((n) => n.id));
                 toast(t('notifications.markedAll'));
               }}
             >

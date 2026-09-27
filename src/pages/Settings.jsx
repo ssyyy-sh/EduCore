@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiUser, FiBell, FiShield, FiMonitor, FiSun, FiMoon, FiLock, FiUsers, FiCheck, FiMinus, FiLogOut } from 'react-icons/fi';
+import { FiUser, FiBell, FiShield, FiMonitor, FiSun, FiMoon, FiLock, FiUsers, FiCheck, FiMinus, FiLogOut, FiSmartphone } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { Switch, Avatar, Modal } from '../components/ui/index.jsx';
 import { useApp, NOTIF_TYPES } from '../context/AppContext.jsx';
@@ -9,6 +9,7 @@ import { useI18n, LANGS } from '../i18n/I18nContext.jsx';
 import { ACCESS, ROLE_KEYS } from '../lib/access.js';
 import { MIN_PASSWORD } from '../config.js';
 import { useRoleMeta } from '../components/dashboard/useRoleMeta.js';
+import { useInstall } from '../lib/pwa.js';
 
 const SECTIONS = [
   { key: 'profile', icon: FiUser },
@@ -17,7 +18,34 @@ const SECTIONS = [
   { key: 'security', icon: FiShield },
   { key: 'roles', icon: FiUsers },
 ];
-const PAGE_ORDER = ['student', 'parent', 'teacher', 'school', 'students', 'analytics', 'assignments', 'grades', 'schedule', 'progress', 'messages', 'notifications', 'settings'];
+const PAGE_ORDER = ['student', 'parent', 'teacher', 'school', 'students', 'staff', 'gradebook', 'attendance', 'analytics', 'assignments', 'grades', 'report-card', 'schedule', 'progress', 'announcements', 'messages', 'notifications', 'settings'];
+
+function InstallApp() {
+  const { t } = useI18n();
+  const { toast } = useApp();
+  const { installed, canInstall, isIOS, install } = useInstall();
+  const text = installed ? t('settings.install.installed') : canInstall ? t('settings.install.text') : isIOS ? t('settings.install.ios') : t('settings.install.generic');
+  return (
+    <div className="install-card">
+      <FiSmartphone aria-hidden="true" />
+      <div>
+        <strong>{t('settings.install.title')}</strong>
+        <span>{text}</span>
+      </div>
+      {canInstall && !installed && (
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={async () => {
+            if (await install()) toast(t('settings.install.done'));
+          }}
+        >
+          {t('settings.install.button')}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { theme, setTheme, toast, prefs, setPref } = useApp();
@@ -188,6 +216,7 @@ export default function Settings() {
                     </button>
                   ))}
                 </div>
+                <InstallApp />
               </div>
             </section>
           )}

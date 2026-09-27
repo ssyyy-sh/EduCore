@@ -34,13 +34,13 @@ export function exportStudentsCSV(rows, t, tStatus, filename = 'educore-students
   ]);
 }
 
-export default function StudentTable({ initialQuery = '', initialStatus = '', pageSize: initialSize = 25, onOpen, title, compact }) {
+export default function StudentTable({ initialQuery = '', initialStatus = '', initialClass = '', pageSize: initialSize = 25, onOpen, title, compact }) {
   const { toast, students, archiveStudent } = useApp();
   const { t, tStatus, fmtDec } = useI18n();
   const navigate = useNavigate();
   const [q, setQ] = useState(initialQuery);
-  const [grade, setGrade] = useState('');
-  const [cls, setCls] = useState('');
+  const [grade, setGrade] = useState(initialClass ? Number(initialClass.split('-')[0]) : '');
+  const [cls, setCls] = useState(initialClass);
   const [status, setStatus] = useState(initialStatus);
   const [att, setAtt] = useState('');
   const [perf, setPerf] = useState('');
@@ -66,6 +66,11 @@ export default function StudentTable({ initialQuery = '', initialStatus = '', pa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
   useEffect(() => setStatus(initialStatus), [initialStatus]);
+  useEffect(() => {
+    if (!initialClass) return;
+    setGrade(Number(initialClass.split('-')[0]));
+    setCls(initialClass);
+  }, [initialClass]);
 
   // Short skeleton while results "load" after a query change.
   useEffect(() => {

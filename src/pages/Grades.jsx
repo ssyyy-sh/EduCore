@@ -1,28 +1,35 @@
 import { useState } from 'react';
-import { FiDownload } from 'react-icons/fi';
+import { Link, useSearchParams } from 'react-router-dom';
+import { FiDownload, FiPrinter } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import RecentGrades, { GradeChip, Change } from '../components/dashboard/Grades.jsx';
 import { TrendLine, Legend, useMonthData } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Segmented } from '../components/ui/index.jsx';
-import { SUBJECT_GRADES, GRADE_HISTORY, RECENT_GRADES, AUTUMN_MONTHS } from '../data/mock.js';
+import { SUBJECT_GRADES, GRADE_HISTORY, RECENT_GRADES, AUTUMN_MONTHS, CHILDREN, CHILD_SUBJECT_GRADES } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { downloadCSV } from '../lib/download.js';
 
 export default function Grades() {
   const [term, setTerm] = useState('year');
-  const { toast } = useApp();
+  const [params, setParams] = useSearchParams();
+  const { toast, recentGrades, role } = useApp();
   const { t, ts, fmtDec } = useI18n();
-  const history = useMonthData(term === 'autumn' ? GRADE_HISTORY.filter((d) => AUTUMN_MONTHS.includes(d.month)) : GRADE_HISTORY);
-  const avg = SUBJECT_GRADES.reduce((a, s) => a + s.average, 0) / SUBJECT_GRADES.length;
-  const best = [...SUBJECT_GRADES].sort((a, b) => b.average - a.average)[0];
-  const improved = [...SUBJECT_GRADES].sort((a, b) => b.change - a.change)[0];
+  const childId = role === 'parent' && CHILDREN.some((c) => c.id === params.get('child')) ? params.get('child') : 'alex';
+  const child = CHILDREN.find((c) => c.id === childId);
+  const SUBJECTS = childId === 'alex' ? SUBJECT_GRADES : CHILD_SUBJECT_GRADES[childId];
+  const fullHistory = childId === 'alex' ? GRADE_HISTORY : GRADE_HISTORY.map((d, i) => ({ ...d, you: child.trend[i] ?? d.you, cls: Math.round((child.trend[i] ?? d.you) * 10 - 2) / 10 }));
+  const history = useMonthData(term === 'autumn' ? fullHistory.filter((d) => AUTUMN_MONTHS.includes(d.month)) : fullHistory);
+  const baseRecent = childId === 'alex' ? RECENT_GRADES : child.recent;
+  const avg = SUBJECTS.reduce((a, s) => a + s.average, 0) / SUBJECTS.length;
+  const best = [...SUBJECTS].sort((a, b) => b.average - a.average)[0];
+  const improved = [...SUBJECTS].sort((a, b) => b.change - a.change)[0];
 
   const exportCSV = () => {
-    const ok = downloadCSV('educore-grades.csv', [
+    const ok = downloadCSV(`educore-grades-${childId}.csv`, [
       [t('grades.colSubject'), t('grades.colTeacher'), t('grades.colGrade'), t('grades.colAverage'), t('grades.colChange')],
-      ...SUBJECT_GRADES.map((s) => [ts(s.subject), s.teacher, s.grade, s.average, s.change]),
+      ...SUBJECTS.map((s) => [ts(s.subject), s.teacher, s.grade, s.average, s.change]),
     ]);
     if (ok) toast(t('grades.downloaded'));
   };
@@ -31,13 +38,21 @@ export default function Grades() {
     <div className="page">
       <PageHeader
         title={t('grades.title')}
-        description={t('grades.sub')}
+        description={role === 'parent' ? t('grades.subChild', { name: child.full, cls: child.className }) : t('grades.sub')}
         actions={
-          <button type="button" className="btn btn-secondary" onClick={exportCSV}>
-            <FiDownload /> {t('grades.reportCard')}
-          </button>
+          <>
+            <button type="button" className="btn btn-secondary" onClick={exportCSV}>
+              <FiDownload /> {t('common.exportCsv')}
+            </button>
+            <Link to={`/app/report-card${role === 'parent' ? `?child=${childId}` : ''}`} className="btn btn-primary">
+              <FiPrinter /> {t('reportCard.open')}
+            </Link>
+          </>
         }
       />
+      {role === 'parent' && (
+        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={(v) => setParams({ child: v }, { replace: true })} options={CHILDREN.map((c) => ({ value: c.id, label: `${c.name} · ${c.className}` }))} />
+      )}
 
       <div className="stats-grid stats-grid-3">
         <StatsCard label={t('grades.overall')} value={fmtDec(avg, 2)} suffix={t('common.of5')} delta={0.1} deltaLabel={`+${fmtDec(0.1)}`} hint={t('dash.stats.vsLastTerm')} />
@@ -69,7 +84,7 @@ export default function Grades() {
                 { label: t('grades.classAverage'), dashed: true },
               ]}
             />
-            <TrendLine data={history} x="month" y="you" compare="cls" yDomain={[4, 5]} names={{ you: t('dash.student.you'), cls: t('grades.classAverage') }} height={250} />
+            <TrendLine data={history} x="month" y="you" compare="cls" yDomain={childId === "alex" ? [4, 5] : [3.5, 5]} names={{ you: t("dash.student.you"), cls: t("grades.classAverage") }} height={250} />
           </div>
         </section>
         <section className="panel">
@@ -77,7 +92,7 @@ export default function Grades() {
             <h3>{t('grades.latest')}</h3>
           </div>
           <div className="panel-body">
-            <RecentGrades items={RECENT_GRADES} />
+            <RecentGrades items={recentGrades(child.studentId, baseRecent)} />
           </div>
         </section>
       </div>
@@ -102,7 +117,7 @@ export default function Grades() {
                 </tr>
               </thead>
               <tbody>
-                {SUBJECT_GRADES.map((s) => (
+                {SUBJECTS.map((s) => (
                   <tr key={s.subject}>
                     <td data-label={t('grades.colSubject')} className="cell-strong">
                       {ts(s.subject)}

@@ -87,6 +87,18 @@ export function AuthProvider({ children }) {
     [accounts, persist]
   );
 
+  /** Admin creates an account for someone else (the session stays the same). */
+  const createAccount = useCallback(
+    ({ name, email, password, role }) => {
+      const e = normEmail(email);
+      if (accounts.some((a) => a.email.toLowerCase() === e)) return { ok: false, error: 'exists' };
+      const acc = { id: `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, role, name: String(name).trim(), email: e, passHash: hashPassword(e, password), createdAt: new Date().toISOString() };
+      persist([...accounts, acc]);
+      return { ok: true, id: acc.id };
+    },
+    [accounts, persist]
+  );
+
   const logout = useCallback(() => {
     setSessionId(null);
     removeKey(SESSION_KEY);
@@ -117,7 +129,7 @@ export function AuthProvider({ children }) {
     return { ...safe, firstName: safe.name.split(/\s+/)[0] };
   }, [account]);
 
-  const value = useMemo(() => ({ user, login, register, logout, updateProfile, changePassword }), [user, login, register, logout, updateProfile, changePassword]);
+  const value = useMemo(() => ({ user, login, register, createAccount, logout, updateProfile, changePassword }), [user, login, register, createAccount, logout, updateProfile, changePassword]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

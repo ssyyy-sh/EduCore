@@ -1,14 +1,15 @@
 {
   "name": "educore",
   "version": "1.0.0",
-  "description": "",
+  "description": "EduCore — school platform for students, parents, teachers and administrators.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "build:single": "vite build --mode single",
     "lint": "eslint src",
-    "check:i18n": "node scripts/check-i18n.mjs"
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "build:docs": "node scripts/build-docs.mjs"
   },
   "keywords": [],
   "author": "",
@@ -31,5 +32,6 @@
     "vite-plugin-singlefile": "^2.3.3"
   },
   "private": true,
-  "type": "module"
+  "type": "module",
+  "homepage": "https://ssyyy-sh.github.io/EduCore/"
 }

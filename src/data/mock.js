@@ -163,6 +163,123 @@ function buildStudents() {
 }
 export const STUDENTS = buildStudents();
 
+// The demo family lives in the real roster, so teacher actions reach them.
+function placeDemoStudent(cls, name, email) {
+  const s = STUDENTS.find((x) => x.className === cls && x.status === 'Active');
+  Object.assign(s, { name, email, guardian: 'Sarah Morgan', guardianEmail: 'sarah.morgan@example.com' });
+  return s.id;
+}
+export const DEMO_STUDENT_IDS = {
+  alex: placeDemoStudent('9-A', 'Alex Morgan', 'alex.morgan@northbridge.edu'),
+  emma: placeDemoStudent('6-C', 'Emma Morgan', 'emma.morgan@northbridge.edu'),
+  daniel: placeDemoStudent('3-B', 'Daniel Morgan', 'daniel.morgan@northbridge.edu'),
+};
+Object.assign(STUDENTS.find((s) => s.id === DEMO_STUDENT_IDS.alex), { score: 94.2, attendance: 94, progress: 82 });
+// The Morgan children's attendance is fixed, so every page tells the same story.
+const DEMO_ATTENDANCE = {
+  [DEMO_STUDENT_IDS.alex]: { '2026-09-09': 'late', '2026-09-16': 'absent' },
+  [DEMO_STUDENT_IDS.emma]: { '2026-09-22': 'late' },
+  [DEMO_STUDENT_IDS.daniel]: { '2026-09-11': 'absent', '2026-09-18': 'absent', '2026-09-24': 'late' },
+};
+
+// ---------- teachers (327) ----------
+const TEACHER_SUBJECTS = ['Mathematics', 'English Literature', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Computer Science', 'Economics', 'Art & Design', 'Music', 'Physical Education', 'French'];
+function buildTeachers() {
+  const r = mulberry32(4242);
+  const fixed = [
+    ['t-hayes', 'Daniel Hayes', 'Mathematics', ['9-A', '9-C', '10-B', '11-A']],
+    ['t-laurent', 'Claire Laurent', 'English Literature', ['9-A', '9-B', '10-A']],
+    ['t-tanaka', 'Kenji Tanaka', 'Physics', ['9-A', '10-A', '11-B']],
+    ['t-silva', 'Ana Silva', 'Music', ['6-C', '9-A']],
+    ['t-hughes', 'Rachel Hughes', 'Reading', ['3-B']],
+  ];
+  const list = fixed.map(([id, name, subject, classes]) => ({ id, name, subject, classes, email: `${name.split(' ')[0]}.${name.split(' ')[1]}`.toLowerCase() + '@northbridge.edu', status: 'Active' }));
+  for (let i = list.length; i < KPIS.teachers; i++) {
+    const first = pick(FIRST, r);
+    const last = pick(LAST, r);
+    const n = 2 + Math.floor(r() * 4);
+    const classes = Array.from({ length: n }, () => pick(CLASSES, r).name).filter((c, j, a) => a.indexOf(c) === j);
+    list.push({ id: `t-${i}`, name: `${first} ${last}`, subject: TEACHER_SUBJECTS[i % TEACHER_SUBJECTS.length], classes, email: `${first}.${last}.${i}`.toLowerCase() + '@northbridge.edu', status: 'Active' });
+  }
+  return list;
+}
+export const TEACHERS = buildTeachers();
+// Form tutor for every class (demo classes get their known tutors).
+export const CLASS_TUTORS = Object.fromEntries(CLASSES.map((c, i) => [c.name, TEACHERS[5 + ((i * 7) % (TEACHERS.length - 5))].id]));
+Object.assign(CLASS_TUTORS, { '9-A': 't-hayes', '6-C': 't-silva', '3-B': 't-hughes' });
+
+// ---------- deterministic seeds ----------
+function hashStr(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+/** Seeded attendance for a student on a date: 'present' | 'late' | 'absent'. */
+export function seedAttendance(student, isoDate) {
+  const fixed = DEMO_ATTENDANCE[student.id];
+  if (fixed) return fixed[isoDate] || 'present';
+  const x = hashStr(`${student.id}|${isoDate}`);
+  const missRate = Math.max(0.01, (100 - student.attendance) / 100);
+  if (x < missRate * 0.75) return 'absent';
+  if (x < missRate) return 'late';
+  return 'present';
+}
+/** Seeded 5-point mark for a student in a gradebook column. */
+export function seedMark(student, colId) {
+  const x = hashStr(`${student.id}|${colId}`);
+  const base = student.score >= 90 ? 5 : student.score >= 78 ? 4 : student.score >= 64 ? 3 : 2;
+  const m = base + (x < 0.28 ? -1 : x > 0.74 ? 1 : 0);
+  return Math.max(2, Math.min(5, m));
+}
+export const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** School days (Mon–Fri) from the start of term up to today, newest first. */
+export function schoolDays(limit = 60) {
+  const out = [];
+  const d = new Date(TODAY);
+  const start = new Date(2026, 8, 1);
+  while (out.length < limit && d >= start) {
+    const wd = d.getDay();
+    if (wd >= 1 && wd <= 5) out.push(new Date(d));
+    d.setDate(d.getDate() - 1);
+  }
+  return out;
+}
+
+// ---------- gradebook columns per class (seeded) ----------
+export const GRADEBOOK_SEED = [
+  { id: 'c1', title: L('Quiz: linear equations', 'Тест: линейные уравнения', 'Test: chiziqli tenglamalar'), date: addDays(TODAY, -18), type: 'Quiz' },
+  { id: 'c2', title: L('Linear functions — problem set 3', 'Линейные функции — задачи 3', 'Chiziqli funksiyalar — 3-masalalar'), date: addDays(TODAY, -6), type: 'Homework' },
+  { id: 'c3', title: L('Test: functions', 'Контрольная: функции', 'Nazorat ishi: funksiyalar'), date: addDays(TODAY, -3), type: 'Quiz' },
+];
+
+// ---------- announcements (seeded) ----------
+export const ANNOUNCEMENTS_SEED = [
+  {
+    id: 'an1',
+    title: L('Parent–teacher conferences', 'Родительские собрания', 'Ota-onalar majlisi'),
+    body: L(
+      'Autumn conferences take place on 14–15 October. Booking is open until 9 October; each meeting lasts 10 minutes.',
+      'Осенние собрания пройдут 14–15 октября. Запись открыта до 9 октября, каждая встреча длится 10 минут.',
+      'Kuzgi majlislar 14–15-oktabr kunlari bo‘ladi. Yozilish 9-oktabrgacha ochiq, har bir uchrashuv 10 daqiqa davom etadi.'
+    ),
+    audience: 'parents',
+    author: 'Olivia Chen',
+    at: addDays(TODAY, -1),
+  },
+  {
+    id: 'an2',
+    title: L('Library opening hours', 'Часы работы библиотеки', 'Kutubxona ish vaqti'),
+    body: L(
+      'From next week the library is open until 17:30 on weekdays for homework and group projects.',
+      'Со следующей недели библиотека работает по будням до 17:30 — для домашних заданий и групповых проектов.',
+      'Keyingi haftadan kutubxona ish kunlari 17:30 gacha uy vazifalari va guruh loyihalari uchun ochiq.'
+    ),
+    audience: 'all',
+    author: 'Olivia Chen',
+    at: addDays(TODAY, -4),
+  },
+];
+
 // ---------- rooms ----------
 const ROOM = {
   gym: L('Gym', 'Спортзал', 'Sport zali'),
@@ -316,6 +433,7 @@ export const CHILDREN = [
     recent: RECENT_GRADES.slice(0, 4),
     tutor: 'Mr. Hayes',
     upcoming: ['a5', 'a6', 'a1', 'a17'],
+    studentId: DEMO_STUDENT_IDS.alex,
   },
   {
     id: 'emma',
@@ -335,6 +453,7 @@ export const CHILDREN = [
     ],
     tutor: 'Ms. Silva',
     upcoming: [],
+    studentId: DEMO_STUDENT_IDS.emma,
   },
   {
     id: 'daniel',
@@ -354,6 +473,7 @@ export const CHILDREN = [
     ],
     tutor: 'Ms. Hughes',
     upcoming: [],
+    studentId: DEMO_STUDENT_IDS.daniel,
   },
 ];
 
@@ -620,3 +740,20 @@ export const NOTIFICATIONS = [
   N('sn2', 'attendance', L('Attendance below target', 'Посещаемость ниже цели', 'Davomat maqsaddan past'), L('Year 11 attendance this week: 92.1% (target 95%).', 'Посещаемость 11 классов на этой неделе: 92,1% (цель 95%).', '11-sinflar davomati bu hafta: 92,1% (maqsad 95%).'), 300, true, ['school']),
   N('sn3', 'grade', L('Grades published', 'Оценки выставлены', 'Baholar e’lon qilindi'), L('Ms. Laurent published Essay 1 grades for 9-A.', 'Ms. Laurent выставила оценки за эссе 1 в 9-A.', 'Ms. Laurent 9-A uchun Insho 1 baholarini e’lon qildi.'), 12, false, ['school']),
 ];
+
+/** Report-card subjects per child (Alex uses SUBJECT_GRADES). */
+export const CHILD_SUBJECT_GRADES = {
+  emma: [
+    { subject: 'Mathematics', teacher: 'Mr. Kim', grade: 5, average: 4.7, change: 0.1 },
+    { subject: 'English', teacher: 'Ms. Silva', grade: 4, average: 4.5, change: 0.2 },
+    { subject: 'Science', teacher: 'Dr. Patel', grade: 5, average: 4.6, change: 0.0 },
+    { subject: 'History', teacher: 'Mr. Walsh', grade: 5, average: 4.7, change: 0.1 },
+    { subject: 'Music', teacher: 'Ms. Silva', grade: 5, average: 4.8, change: 0.0 },
+  ],
+  daniel: [
+    { subject: 'Reading', teacher: 'Ms. Hughes', grade: 4, average: 4.2, change: 0.1 },
+    { subject: 'Mathematics', teacher: 'Ms. Hughes', grade: 5, average: 4.5, change: 0.2 },
+    { subject: 'Science', teacher: 'Ms. Hughes', grade: 4, average: 4.1, change: -0.1 },
+    { subject: 'Art', teacher: 'Ms. Lindqvist', grade: 5, average: 4.6, change: 0.0 },
+  ],
+};

@@ -15,3 +15,16 @@ export const DEMO_ACCOUNTS = [
 ];
 
 export const MIN_PASSWORD = 8;
+
+/**
+ * Your own photos instead of the stock ones.
+ * 1. Put the files into the public/images/ folder.
+ * 2. Write the file name next to the place where it should appear, e.g. classroom: 'classroom.jpg'.
+ * Places: campus (sign-in page), studentsLaptops (sign-up page), classroom and library (home page,
+ * "For schools"), studyHome (home page, "For parents"), studentLaptop (spare).
+ * If a file can't be loaded, the stock photo is shown instead.
+ */
+export const OWN_PHOTOS = {
+  // campus: 'campus.jpg',
+  // classroom: 'classroom.jpg',
+};

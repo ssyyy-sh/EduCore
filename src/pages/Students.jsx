@@ -97,8 +97,8 @@ export default function Students() {
         ]}
       />
 
-      <StudentTable initialQuery={params.get('q') ?? ''} initialStatus={status} onOpen={setDrawer} />
-      <StudentDrawer student={drawer} onClose={() => setDrawer(null)} />
+      <StudentTable initialQuery={params.get('q') ?? ''} initialClass={params.get('class') ?? ''} initialStatus={status} onOpen={setDrawer} />
+      <StudentDrawer student={drawer ? students.find((x) => x.id === drawer.id) || drawer : null} onClose={() => setDrawer(null)} />
 
       <Modal
         open={modal && canEdit}

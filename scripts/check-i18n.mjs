@@ -21,13 +21,16 @@ for (const f of walk('src')) {
 }
 // dynamic keys
 const dyn = {
-  'nav.': ['overview', 'schedule', 'assignments', 'grades', 'progress', 'messages', 'notifications', 'settings', 'students', 'analytics'],
+  'nav.': ['overview', 'schedule', 'assignments', 'grades', 'progress', 'messages', 'notifications', 'settings', 'students', 'analytics', 'gradebook', 'attendance', 'staff', 'announcements'],
+  'attendance.': ['present', 'late', 'absent'],
+  'attendance.short.': ['present', 'late', 'absent'],
+  'announcements.aud.': ['all', 'students', 'parents', 'teachers'],
   'roles.': ['student', 'parent', 'teacher', 'school', 'schoolShort'],
   'status.': ['Completed', 'Pending', 'Overdue', 'Active', 'At risk', 'On leave', 'Inactive'],
   'theme.': ['system', 'light', 'dark'],
   'time.': ['morning', 'afternoon', 'evening'],
   'settings.sections.': ['profile', 'notifications', 'appearance', 'security', 'roles'],
-  'settings.pages.': ['student', 'parent', 'teacher', 'school', 'students', 'analytics', 'assignments', 'grades', 'schedule', 'progress', 'messages', 'notifications', 'settings'],
+  'settings.pages.': ['student', 'parent', 'teacher', 'school', 'students', 'analytics', 'assignments', 'grades', 'schedule', 'progress', 'messages', 'notifications', 'settings', 'staff', 'gradebook', 'attendance', 'report-card', 'announcements'],
   'settings.notifItems.': ['assignment', 'grade', 'schedule', 'announcement', 'message', 'attendance'],
   'notifications.types.': ['all', 'assignment', 'grade', 'schedule', 'announcement'],
   'notifications.groups.': ['Today', 'Earlier'],

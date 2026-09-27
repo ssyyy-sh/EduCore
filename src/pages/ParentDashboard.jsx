@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiAward, FiUserCheck, FiTrendingUp, FiCheckSquare, FiArrowRight, FiMessageSquare, FiAlertCircle, FiClock, FiCheckCircle } from 'react-icons/fi';
+import { FiAward, FiUserCheck, FiTrendingUp, FiCheckSquare, FiArrowRight, FiMessageSquare, FiAlertCircle, FiClock, FiCheckCircle, FiPrinter } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import RecentGrades from '../components/dashboard/Grades.jsx';
@@ -16,7 +16,7 @@ import { greetingKey } from '../components/dashboard/greeting.js';
 export default function ParentDashboard() {
   const [childId, setChildId] = useState('alex');
   const loading = useFakeLoading(300, [childId]);
-  const { notifications, assignments, markNotificationRead } = useApp();
+  const { notifications, assignments, markNotificationRead, recentGrades, students, attendanceSummary } = useApp();
   const { user } = useAuth();
   const { t, tr, fmtDec, relativeDue } = useI18n();
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ export default function ParentDashboard() {
           },
         }
       : base;
+  const att = attendanceSummary(students.find((s) => s.id === c.studentId));
   const totalA = c.assignments.done + c.assignments.pending + c.assignments.overdue;
   const upcoming = c.upcoming.map((id) => assignments.find((a) => a.id === id)).filter((a) => a && a.status !== 'Completed');
 
@@ -42,9 +43,14 @@ export default function ParentDashboard() {
         title={`${t(greetingKey())}, ${user.firstName}.`}
         description={t('dash.parent.sub')}
         actions={
-          <Link to={`/app/messages?to=${encodeURIComponent(c.tutor)}&role=Teacher`} className="btn btn-secondary">
-            <FiMessageSquare /> {t('dash.parent.message')}
-          </Link>
+          <>
+            <Link to={`/app/report-card?child=${c.id}`} className="btn btn-secondary">
+              <FiPrinter /> {t('reportCard.open')}
+            </Link>
+            <Link to={`/app/messages?to=${encodeURIComponent(c.tutor)}&role=Teacher`} className="btn btn-primary">
+              <FiMessageSquare /> {t('dash.parent.message')}
+            </Link>
+          </>
         }
       />
 
@@ -60,7 +66,7 @@ export default function ParentDashboard() {
         <StatsCard icon={FiAward} label={t('dash.stats.avgGrade')} value={fmtDec(c.avgGrade)} suffix={t('common.of5')} loading={loading} hint={t('dash.parent.trend')}>
           <Sparkline data={c.trend} height={30} />
         </StatsCard>
-        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${c.attendance}%`} loading={loading} hint={c.attendance >= 95 ? t('dash.parent.excellent') : t('dash.parent.aboveMin')} />
+        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${Math.round(att.rate)}%`} loading={loading} hint={t('attendance.lateAbsent', { late: att.late, absent: att.absent })} />
         <StatsCard icon={FiTrendingUp} label={t('dash.stats.progress')} value={`${c.progress}%`} loading={loading} hint={t('dash.parent.ofObjectives')}>
           <Bar value={c.progress} />
         </StatsCard>
@@ -111,12 +117,12 @@ export default function ParentDashboard() {
         <section className="panel">
           <div className="panel-head">
             <h3>{t('dash.student.recentGrades')}</h3>
-            <Link to="/app/grades" className="link-more">
+            <Link to={`/app/grades?child=${c.id}`} className="link-more">
               {t('common.grades')} <FiArrowRight />
             </Link>
           </div>
           <div className="panel-body">
-            <RecentGrades items={c.recent} />
+            <RecentGrades items={recentGrades(c.studentId, c.recent, 4)} />
           </div>
         </section>
 

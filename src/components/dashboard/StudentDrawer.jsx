@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FiX, FiMail, FiHash, FiUsers } from 'react-icons/fi';
+import { FiX, FiMail, FiHash, FiUsers, FiRepeat } from 'react-icons/fi';
 import { Avatar, Status, Bar } from '../ui/index.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
+import { useApp } from '../../context/AppContext.jsx';
+import { CLASSES } from '../../data/mock.js';
 
 export default function StudentDrawer({ student, onClose }) {
   const { t, fmtDec } = useI18n();
@@ -11,6 +13,10 @@ export default function StudentDrawer({ student, onClose }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const panel = useRef(null);
+  const { role, moveStudent, toast } = useApp();
+  const [target, setTarget] = useState('');
+  const sid = student?.id;
+  useEffect(() => setTarget(''), [sid]);
 
   useEffect(() => {
     if (!student) return undefined;
@@ -23,7 +29,7 @@ export default function StudentDrawer({ student, onClose }) {
       document.removeEventListener('keydown', h);
       prev?.focus?.();
     };
-  }, [student]);
+  }, [sid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!student) return null;
   const s = student;
@@ -87,6 +93,33 @@ export default function StudentDrawer({ student, onClose }) {
               </dd>
             </div>
           </dl>
+          {role === 'school' && s.status !== 'Inactive' && (
+            <div className="drawer-block">
+              <h3>{t('table.moveTitle')}</h3>
+              <div className="move-row">
+                <select className="input select-native" aria-label={t('table.moveTo')} value={target} onChange={(e) => setTarget(e.target.value)}>
+                  <option value="">{t('table.moveTo')}</option>
+                  {CLASSES.filter((c) => c.grade === s.grade && c.name !== s.className).map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!target}
+                  onClick={() => {
+                    moveStudent(s.id, target);
+                    toast(t('table.moved', { name: s.name, cls: target }));
+                    setTarget('');
+                  }}
+                >
+                  <FiRepeat /> {t('table.move')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="drawer-foot">
           <button type="button" className="btn btn-secondary" onClick={onClose}>

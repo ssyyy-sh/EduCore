@@ -8,7 +8,7 @@ import RecentGrades from '../components/dashboard/Grades.jsx';
 import SubjectProgress from '../components/dashboard/Progress.jsx';
 import { TrendLine, Legend, ProgressRing, useMonthData } from '../components/dashboard/Analytics.jsx';
 import { useFakeLoading } from '../components/ui/index.jsx';
-import { SCHEDULE, RECENT_GRADES, SUBJECT_PROGRESS, GRADE_HISTORY, STUDENT_STATS, todayKey, TODAY } from '../data/mock.js';
+import { SCHEDULE, RECENT_GRADES, DEMO_STUDENT_IDS, SUBJECT_PROGRESS, GRADE_HISTORY, STUDENT_STATS, todayKey, TODAY } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -17,7 +17,8 @@ import { greetingKey } from '../components/dashboard/greeting.js';
 export default function StudentDashboard() {
   const loading = useFakeLoading(400);
   const navigate = useNavigate();
-  const { assignments } = useApp();
+  const { assignments, recentGrades, students, attendanceSummary } = useApp();
+  const att = attendanceSummary(students.find((s) => s.id === DEMO_STUDENT_IDS.alex));
   const { user } = useAuth();
   const { t, tw, fmtDate, fmtDec } = useI18n();
   const history = useMonthData(GRADE_HISTORY);
@@ -43,7 +44,7 @@ export default function StudentDashboard() {
 
       <div className="stats-grid">
         <StatsCard icon={FiAward} label={t('dash.stats.avgGrade')} value={fmtDec(STUDENT_STATS.avgGrade)} suffix={t('common.of5')} delta={0.1} deltaLabel={`+${fmtDec(0.1)}`} hint={t('dash.stats.vsLastTerm')} loading={loading} />
-        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${STUDENT_STATS.attendance}%`} delta={-1} deltaLabel="−1%" hint={t('dash.stats.lateArrivals')} loading={loading} />
+        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${Math.round(att.rate)}%`} hint={t('attendance.lateAbsent', { late: att.late, absent: att.absent })} loading={loading} />
         <StatsCard icon={FiTrendingUp} label={t('dash.stats.progress')} value={`${STUDENT_STATS.progress}%`} delta={4} deltaLabel="+4%" hint={t('dash.stats.thisMonth')} loading={loading} />
         <StatsCard icon={FiCheckSquare} label={t('dash.stats.completed')} value={completed} hint={t('dash.stats.thisTermCount')} loading={loading} />
       </div>
@@ -91,7 +92,7 @@ export default function StudentDashboard() {
             </Link>
           </div>
           <div className="panel-body">
-            <RecentGrades items={RECENT_GRADES} />
+            <RecentGrades items={recentGrades(DEMO_STUDENT_IDS.alex, RECENT_GRADES)} />
           </div>
         </section>
 

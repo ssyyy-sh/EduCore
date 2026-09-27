@@ -13,7 +13,7 @@ import { readJSON, writeJSON } from '../lib/storage.js';
 function MobileTabBar({ onMore }) {
   const { role } = useApp();
   const { t } = useI18n();
-  const items = [...NAV[role].main.slice(0, 3), NAV[role].comms[0]];
+  const items = [...NAV[role].main.slice(0, 3), NAV[role].comms.find((c) => c.key === 'messages')];
   return (
     <nav className="tabbar" aria-label={t('nav.mobileNav')}>
       {items.map((it) => (

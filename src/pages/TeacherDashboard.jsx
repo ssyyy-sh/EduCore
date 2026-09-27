@@ -5,26 +5,27 @@ import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Bars } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Status, SearchInput, Modal, EmptyState, Bar } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, TEACHER_SUBMISSIONS, TEACHER_ATTENDANCE_WEEK, GRADE_DISTRIBUTION, TODAY, addDays } from '../data/mock.js';
+import { TEACHER_CLASSES, TEACHER_SUBMISSIONS, TEACHER_ATTENDANCE_WEEK, GRADE_DISTRIBUTION, TODAY, addDays, schoolDays, isoDay } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { greetingKey } from '../components/dashboard/greeting.js';
 
 const lowerFirst = (str) => (str ? str.charAt(0).toLowerCase() + str.slice(1) : str);
-const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const LAST_DAY = schoolDays(1)[0] || TODAY;
 const SUBJECT_OF = { 'Algebra I': 'Mathematics', Geometry: 'Mathematics', 'Pre-calculus': 'Mathematics' };
 
 export default function TeacherDashboard() {
   const [active, setActive] = useState('9-A');
   const [q, setQ] = useState('');
   const [modal, setModal] = useState(false);
-  const { toast, students, attendance: saved, saveAttendance, addAssignment, assignments } = useApp();
+  const { toast, students, getAttendance, saveAttendanceDay, addAssignment, assignments } = useApp();
   const { user } = useAuth();
-  const { t, tr, ts, fmtDec, relativeDue } = useI18n();
-  const todayKeyStr = `${isoDay(new Date())}|${active}`;
+  const { t, tr, ts, fmtDec, fmtDate, relativeDue } = useI18n();
+  const dayIso = isoDay(LAST_DAY);
+  const isToday = dayIso === isoDay(TODAY);
   const [draft, setDraft] = useState({});
-  const attendance = { ...(saved[todayKeyStr] || {}), ...(draft[active] || {}) };
+  const statusOf = (s) => draft[active]?.[s.id] ?? getAttendance(s, dayIso);
 
   const [form, setForm] = useState({ title: '', cls: '9-A', due: isoDay(addDays(TODAY, 7)), instr: '' });
   const [formErr, setFormErr] = useState('');
@@ -63,7 +64,7 @@ export default function TeacherDashboard() {
   };
 
   const saveToday = () => {
-    saveAttendance(todayKeyStr, attendance);
+    saveAttendanceDay(dayIso, active, Object.fromEntries(roster.map((s) => [s.id, statusOf(s)])));
     setDraft((d) => ({ ...d, [active]: {} }));
     toast(t('dash.teacher.saved', { cls: active }));
   };
@@ -157,12 +158,12 @@ export default function TeacherDashboard() {
                       <th>{t('table.grade')}</th>
                       <th>{t('table.attendance')}</th>
                       <th>{t('table.status')}</th>
-                      <th className="right">{t('dash.teacher.todayCol')}</th>
+                      <th className="right">{isToday ? t('dash.teacher.todayCol') : fmtDate(LAST_DAY, { weekday: 'short', day: 'numeric', month: 'short', cap: true })}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((s) => {
-                      const present = attendance[s.id] ?? true;
+                      const present = statusOf(s) !== 'absent';
                       return (
                         <tr key={s.id}>
                           <td>
@@ -183,7 +184,7 @@ export default function TeacherDashboard() {
                             <button
                               type="button"
                               className={`present-toggle ${present ? 'is-present' : 'is-absent'}`}
-                              onClick={() => setDraft((d) => ({ ...d, [active]: { ...(d[active] || {}), [s.id]: !present } }))}
+                              onClick={() => setDraft((d) => ({ ...d, [active]: { ...(d[active] || {}), [s.id]: present ? 'absent' : 'present' } }))}
                               aria-pressed={present}
                             >
                               {present ? <FiCheck aria-hidden="true" /> : null}

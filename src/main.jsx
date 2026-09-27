@@ -10,6 +10,9 @@ import './styles/base.css';
 import './styles/ui.css';
 import './styles/landing.css';
 import './styles/app.css';
+import { setupPWA } from './lib/pwa.js';
+
+setupPWA();
 
 const Router = __HASH_ROUTER__ ? HashRouter : BrowserRouter;
 

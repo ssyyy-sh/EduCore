@@ -511,8 +511,16 @@ export function Toasts() {
 
 /* ---------- Photo with graceful fallback ---------- */
 export function Photo({ src, alt, className = '', style, eager }) {
+  // `src` may be a list: the next source is tried when one fails to load.
+  const list = Array.isArray(src) ? src : [src];
+  const key = list.join('|');
+  const [idx, setIdx] = useState(0);
   const [state, setState] = useState('loading');
-  useEffect(() => setState('loading'), [src]);
+  useEffect(() => {
+    setIdx(0);
+    setState('loading');
+  }, [key]);
+  const onError = () => (idx < list.length - 1 ? setIdx(idx + 1) : setState('error'));
   return (
     <div className={`photo ${state === 'loading' ? 'is-loading' : ''} ${className}`} style={style}>
       {state === 'error' ? (
@@ -520,7 +528,7 @@ export function Photo({ src, alt, className = '', style, eager }) {
           <FiImage />
         </div>
       ) : (
-        <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" onLoad={() => setState('loaded')} onError={() => setState('error')} />
+        <img src={list[idx]} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" onLoad={() => setState('loaded')} onError={onError} />
       )}
     </div>
   );

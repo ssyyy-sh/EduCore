@@ -86,7 +86,7 @@ function RoundedBar(props) {
 }
 
 /** Bar chart; `second` adds a comparison series. `highlightLast` emphasises the latest bar. */
-export function Bars({ data, x, y, second, yDomain, unit = '', height = 220, names = {}, fmt, highlightLast, layout = 'horizontal', digits = 1 }) {
+export function Bars({ data, x, y, second, yDomain, unit = '', height = 220, names = {}, fmt, highlightLast, layout = 'horizontal', digits = 1, interval = 0 }) {
   const f = useFmt(fmt, unit, digits);
   const vertical = layout === 'vertical';
   return (
@@ -101,7 +101,7 @@ export function Bars({ data, x, y, second, yDomain, unit = '', height = 220, nam
             </>
           ) : (
             <>
-              <XAxis dataKey={x} tick={axis} axisLine={false} tickLine={false} dy={6} interval={0} />
+              <XAxis dataKey={x} tick={axis} axisLine={false} tickLine={false} dy={6} interval={interval} />
               <YAxis domain={yDomain ?? [0, 'auto']} tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={f} />
             </>
           )}
