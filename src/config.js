@@ -11,8 +11,8 @@ export const SHOW_DEMO_ACCOUNTS = true;
  * Fill in both → real accounts and shared data for all devices (see SUPABASE.md).
  * Supabase → Project Settings → API: "Project URL" and the "anon public" key (this key is meant to be public).
  */
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://rdpahiaowwtxwqnusjfz.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_tnbDU0nNU3zlLOOJvHnSJA_fFjauCTt';
 
 /** Demo accounts — one per role. Each has its own email and password. */
 export const DEMO_ACCOUNTS = [
