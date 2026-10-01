@@ -630,12 +630,14 @@ export function AppProvider({ children: content }) {
         });
         return sync(() => api.addColumn({ cls, col: column }));
       },
-      removeColumn: (cls, colId) => {
+      removeColumn: (cls, colId, subject) => {
         update((d) => {
           const g = gbOf(d, cls);
           return { ...d, gradebook: { ...d.gradebook, [cls]: { ...g, removed: [...new Set([...(g.removed || []), colId])] } } };
         });
-        return sync(() => api.removeColumn({ cls, colId, isSeed: GRADEBOOK_SEED.some((c) => c.id === colId) }));
+        const isSeed = GRADEBOOK_SEED.some((c) => c.id === colId);
+        const col = (dataRef.current.gradebook[cls]?.columns || []).find((c) => c.id === colId);
+        return sync(() => api.removeColumn({ cls, colId, isSeed, subject: isSeed ? 'Mathematics' : col?.subject || subject }));
       },
       // Attendance: map of studentId → status for one class and day
       saveAttendanceDay: (iso, cls, map) => {

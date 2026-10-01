@@ -424,7 +424,7 @@ export default function Gradebook() {
               type="button"
               className="btn btn-danger"
               onClick={() => {
-                removeColumn(cls, confirm.id);
+                removeColumn(cls, confirm.id, subject);
                 setConfirm(null);
                 toast(t('gradebook.columnRemoved'));
               }}

@@ -29,6 +29,11 @@ export default function Owner() {
   const [roleFilter, setRoleFilter] = useState('');
   const [shown, setShown] = useState(null); // { name, email, password }
   const [confirm, setConfirm] = useState(null); // { type: 'delete' | 'reset', account? }
+  const [typed, setTyped] = useState('');
+  // With the server, erasing affects the real school: the owner types a word to confirm.
+  const eraseWord = t('owner.eraseWord');
+  const needWord = remote && confirm?.type === 'reset';
+  const wordOk = !needWord || typed.trim().toUpperCase() === eraseWord.toUpperCase();
 
   const counts = useMemo(() => Object.fromEntries([...ROLES, 'pending'].map((r) => [r, allAccounts.filter((a) => a.role === r).length])), [allAccounts]);
   const roleOptions = remote ? [...ROLES, 'pending'] : ROLES;
@@ -265,8 +270,15 @@ export default function Owner() {
                 </strong>
                 <span>{remote ? t('owner.resetTextRemote') : t('owner.resetText')}</span>
               </div>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirm({ type: 'reset' })}>
-                {t('owner.resetBtn')}
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  setTyped('');
+                  setConfirm({ type: 'reset' });
+                }}
+              >
+                {remote ? t('owner.eraseBtn') : t('owner.resetBtn')}
               </button>
             </li>
           </ul>
@@ -325,11 +337,13 @@ export default function Owner() {
             <button
               type="button"
               className="btn btn-danger"
+              disabled={!wordOk}
               onClick={async () => {
+                if (!wordOk) return;
                 if (confirm.type === 'reset') {
                   const ok = await resetData();
                   await clearFiles();
-                  if (ok) toast(t('owner.resetDone'));
+                  if (ok) toast(remote ? t('owner.eraseDone') : t('owner.resetDone'));
                 } else if (confirm.type === 'block') {
                   const ok = await blockAccount(confirm.account.id, true);
                   toast(ok ? t('owner.blockedToast', { name: confirm.account.name }) : t('sync.error'));
@@ -340,11 +354,23 @@ export default function Owner() {
                 setConfirm(null);
               }}
             >
-              {confirm?.type === 'reset' ? t('owner.resetBtn') : confirm?.type === 'block' ? t('owner.block') : t('owner.delete')}
+              {confirm?.type === 'reset' ? (remote ? t('owner.eraseBtn') : t('owner.resetBtn')) : confirm?.type === 'block' ? t('owner.block') : t('owner.delete')}
             </button>
           </>
         }
-      />
+      >
+        {needWord && (
+          <div className="field">
+            <button type="button" className="btn btn-secondary btn-sm" style={{ justifySelf: 'start' }} onClick={exportBackup}>
+              <FiDownload /> {t('owner.backupFirst')}
+            </button>
+            <label className="label" htmlFor="erase-word" style={{ marginTop: 12 }}>
+              {t('owner.eraseType', { word: eraseWord })}
+            </label>
+            <input id="erase-word" className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} placeholder={eraseWord} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

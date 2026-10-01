@@ -544,6 +544,40 @@ begin
   return json_build_object('ok', true, 'student_name', lc.student_name, 'class_name', lc.class_name);
 end $$;
 
+-- ---------- Subjects: a teacher grades only their own subject ----------
+create or replace function private.my_subjects() returns setof text
+language sql stable security definer set search_path = public as $$
+  select subject from public.account_links
+  where profile_id = auth.uid() and kind = 'teacher' and subject is not null and private.is_active()
+$$;
+
+-- Owner: any class and subject. Teacher: own class and own subject (null = old rows made before subjects existed).
+create or replace function private.teaches_subject(cls text, subj text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case
+    when private.my_role() = 'owner' then true
+    when private.my_role() = 'teacher' then private.teaches(cls) and (subj is null or subj in (select private.my_subjects()))
+    else false end
+$$;
+
+-- Subject of a gradebook column. The three starting columns (c1–c3) are Mathematics; an unknown column matches nothing.
+create or replace function private.column_subject(cls text, col text) returns text
+language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.gb_columns c where c.class_name = cls and c.id = col)
+      then (select c.subject from public.gb_columns c where c.class_name = cls and c.id = col)
+    when col in ('c1', 'c2', 'c3') then 'Mathematics'
+    else '-' end
+$$;
+
+-- May I grade a submission of this assignment? Assignments saved in the app: my own or my subject.
+create or replace function private.grades_assignment(aid text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select private.my_role() = 'owner'
+    or not exists (select 1 from public.assignments a where a.id = aid)
+    or exists (select 1 from public.assignments a where a.id = aid and (a.created_by = auth.uid() or a.subject in (select private.my_subjects())))
+$$;
+
 -- ---------- Access rules (Row Level Security) ----------
 alter table public.profiles enable row level security;
 alter table public.invites enable row level security;
@@ -617,25 +651,31 @@ drop policy if exists gb_columns_select on public.gb_columns;
 create policy gb_columns_select on public.gb_columns for select to authenticated
   using (private.is_admin() or private.teaches(class_name) or class_name in (select private.my_family_classes()));
 drop policy if exists gb_columns_insert on public.gb_columns;
-create policy gb_columns_insert on public.gb_columns for insert to authenticated with check (private.teaches(class_name));
+create policy gb_columns_insert on public.gb_columns for insert to authenticated
+  with check (private.teaches_subject(class_name, subject) and (subject is not null or private.my_role() = 'owner'));
 drop policy if exists gb_columns_update on public.gb_columns;
-create policy gb_columns_update on public.gb_columns for update to authenticated using (private.teaches(class_name));
+create policy gb_columns_update on public.gb_columns for update to authenticated
+  using (private.teaches_subject(class_name, subject)) with check (private.teaches_subject(class_name, subject));
 drop policy if exists gb_columns_delete on public.gb_columns;
 create policy gb_columns_delete on public.gb_columns for delete to authenticated using (private.my_role() = 'owner');
 
 drop policy if exists marks_select on public.marks;
 create policy marks_select on public.marks for select to authenticated using (private.sees_student(student_id, class_name));
 drop policy if exists marks_insert on public.marks;
-create policy marks_insert on public.marks for insert to authenticated with check (private.teaches(class_name));
+create policy marks_insert on public.marks for insert to authenticated
+  with check (private.teaches_subject(class_name, private.column_subject(class_name, column_id)));
 drop policy if exists marks_update on public.marks;
-create policy marks_update on public.marks for update to authenticated using (private.teaches(class_name));
+create policy marks_update on public.marks for update to authenticated
+  using (private.teaches_subject(class_name, private.column_subject(class_name, column_id)))
+  with check (private.teaches_subject(class_name, private.column_subject(class_name, column_id)));
 drop policy if exists marks_delete on public.marks;
 create policy marks_delete on public.marks for delete to authenticated using (private.my_role() = 'owner');
 
 drop policy if exists grade_log_select on public.grade_log;
 create policy grade_log_select on public.grade_log for select to authenticated using (private.sees_student(student_id, class_name));
 drop policy if exists grade_log_insert on public.grade_log;
-create policy grade_log_insert on public.grade_log for insert to authenticated with check (private.teaches(class_name));
+create policy grade_log_insert on public.grade_log for insert to authenticated
+  with check (private.teaches_subject(class_name, coalesce(subject, '-')));
 drop policy if exists grade_log_delete on public.grade_log;
 create policy grade_log_delete on public.grade_log for delete to authenticated using (private.my_role() = 'owner');
 
@@ -651,7 +691,7 @@ create policy submissions_insert on public.submissions for insert to authenticat
   );
 drop policy if exists submissions_update on public.submissions;
 create policy submissions_update on public.submissions for update to authenticated
-  using (private.teaches(class_name));
+  using (private.teaches(class_name) and private.grades_assignment(assignment_id));
 drop policy if exists submissions_delete on public.submissions;
 create policy submissions_delete on public.submissions for delete to authenticated using (private.my_role() = 'owner');
 
@@ -743,11 +783,12 @@ create policy behavior_delete on public.behavior for delete to authenticated
 drop policy if exists finals_select on public.final_grades;
 create policy finals_select on public.final_grades for select to authenticated using (private.sees_student(student_id, class_name));
 drop policy if exists finals_insert on public.final_grades;
-create policy finals_insert on public.final_grades for insert to authenticated with check (private.teaches(class_name));
+create policy finals_insert on public.final_grades for insert to authenticated with check (private.teaches_subject(class_name, subject));
 drop policy if exists finals_update on public.final_grades;
-create policy finals_update on public.final_grades for update to authenticated using (private.teaches(class_name));
+create policy finals_update on public.final_grades for update to authenticated
+  using (private.teaches_subject(class_name, subject)) with check (private.teaches_subject(class_name, subject));
 drop policy if exists finals_delete on public.final_grades;
-create policy finals_delete on public.final_grades for delete to authenticated using (private.teaches(class_name));
+create policy finals_delete on public.final_grades for delete to authenticated using (private.teaches_subject(class_name, subject));
 
 -- chat: only the two people in a conversation see it
 drop policy if exists chat_select on public.chat_messages;
@@ -813,6 +854,10 @@ revoke all on function private.my_family_classes() from public, anon;
 revoke all on function private.my_teacher_classes() from public, anon;
 revoke all on function private.teaches(text) from public, anon;
 revoke all on function private.student_class(text) from public, anon;
+revoke all on function private.my_subjects() from public, anon;
+revoke all on function private.teaches_subject(text, text) from public, anon;
+revoke all on function private.column_subject(text, text) from public, anon;
+revoke all on function private.grades_assignment(text) from public, anon;
 revoke all on function private.sees_student(text, text) from public, anon;
 revoke all on function private.sees_announcement(text, uuid) from public, anon;
 revoke all on function private.sync_student_class() from public, anon, authenticated;
@@ -825,6 +870,10 @@ grant execute on function private.my_family_classes() to authenticated;
 grant execute on function private.my_teacher_classes() to authenticated;
 grant execute on function private.teaches(text) to authenticated;
 grant execute on function private.student_class(text) to authenticated;
+grant execute on function private.my_subjects() to authenticated;
+grant execute on function private.teaches_subject(text, text) to authenticated;
+grant execute on function private.column_subject(text, text) to authenticated;
+grant execute on function private.grades_assignment(text) to authenticated;
 grant execute on function private.sees_student(text, text) to authenticated;
 grant execute on function private.sees_announcement(text, uuid) to authenticated;
 grant execute on function private.my_role() to authenticated;

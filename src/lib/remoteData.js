@@ -140,7 +140,7 @@ export const api = {
     if (log) await insert('grade_log', log);
   },
   addColumn: ({ cls, col }) => insert('gb_columns', { class_name: cls, id: col.id, title: col.title, date: col.date, type: col.type, subject: col.subject || null }),
-  removeColumn: ({ cls, colId, isSeed }) => upsert('gb_columns', { class_name: cls, id: colId, removed: true, ...(isSeed ? { is_seed: true } : {}) }, 'class_name,id'),
+  removeColumn: ({ cls, colId, isSeed, subject }) => upsert('gb_columns', { class_name: cls, id: colId, removed: true, subject: subject || null, ...(isSeed ? { is_seed: true } : {}) }, 'class_name,id'),
   saveAttendance: ({ iso, cls, map }) => {
     const rows = Object.entries(map).map(([student_id, status]) => ({ day: iso, class_name: cls, student_id, status }));
     return rows.length ? upsert('attendance', rows, 'day,class_name,student_id') : Promise.resolve();
