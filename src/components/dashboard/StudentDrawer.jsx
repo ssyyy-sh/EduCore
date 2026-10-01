@@ -6,6 +6,7 @@ import { Avatar, Status, Bar } from '../ui/index.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { CLASSES } from '../../data/mock.js';
+import { StudentAccounts } from './AccountLinks.jsx';
 
 export default function StudentDrawer({ student, onClose }) {
   const { t, fmtDec } = useI18n();
@@ -93,6 +94,7 @@ export default function StudentDrawer({ student, onClose }) {
               </dd>
             </div>
           </dl>
+          {role === 'school' && <StudentAccounts student={s} />}
           {role === 'school' && s.status !== 'Inactive' && (
             <div className="drawer-block">
               <h3>{t('table.moveTitle')}</h3>

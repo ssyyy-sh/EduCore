@@ -4,7 +4,8 @@ import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Bars } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Select, Segmented, EmptyState, SearchInput } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, CLASSES, GRADE_LEVELS, CHILDREN, schoolDays, isoDay } from '../data/mock.js';
+import { CLASSES, GRADE_LEVELS, schoolDays, isoDay } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { downloadCSV } from '../lib/download.js';
@@ -15,10 +16,11 @@ const DAYS = schoolDays(40); // newest first
 
 /* ---------- Teacher / admin: mark and review a class ---------- */
 function StaffAttendance() {
-  const { role, students, getAttendance, saveAttendanceDay, toast } = useApp();
+  const { role, students, getAttendance, saveAttendanceDay, toast, myClasses } = useApp();
   const { t, fmtDate, fmtPct } = useI18n();
   const isTeacher = role === 'teacher';
-  const [cls, setCls] = useState(isTeacher ? TEACHER_CLASSES[0].name : '9-A');
+  const [pick, setCls] = useState(null);
+  const cls = isTeacher ? (myClasses.includes(pick) ? pick : myClasses[0] || '') : pick || '9-A';
   const [year, setYear] = useState('9');
   const [dayIdx, setDayIdx] = useState(0);
   const [draft, setDraft] = useState({});
@@ -57,7 +59,7 @@ function StaffAttendance() {
     if (ok) toast(t('attendance.exported'));
   };
 
-  const classOptions = isTeacher ? TEACHER_CLASSES.map((c) => ({ value: c.name, label: c.name })) : CLASSES.filter((c) => String(c.grade) === String(year)).map((c) => ({ value: c.name, label: c.name }));
+  const classOptions = isTeacher ? myClasses.map((c) => ({ value: c, label: c })) : CLASSES.filter((c) => String(c.grade) === String(year)).map((c) => ({ value: c.name, label: c.name }));
   const rows = roster.filter((s) => s.name.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
@@ -190,9 +192,8 @@ function StaffAttendance() {
 function FamilyAttendance() {
   const { role, students, getAttendance } = useApp();
   const { t, fmtDate, fmtPct } = useI18n();
-  const [childId, setChildId] = useState('alex');
-  const child = CHILDREN.find((c) => c.id === (role === 'student' ? 'alex' : childId));
-  const student = students.find((s) => s.id === child.studentId);
+  const { child, childId, setChildId, options, many } = useChild();
+  const student = students.find((s) => s.id === child.studentId) || { id: child.studentId, className: child.className, isNew: true };
   const days = [...DAYS].reverse();
   const records = days.map((d) => ({ date: d, status: getAttendance(student, isoDay(d)) }));
   const count = (st) => records.filter((r) => r.status === st).length;
@@ -210,9 +211,7 @@ function FamilyAttendance() {
   return (
     <div className="page">
       <PageHeader title={t('attendance.title')} description={t('attendance.subFamily', { name: child.full, cls: child.className })} />
-      {role === 'parent' && (
-        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((c) => ({ value: c.id, label: `${c.name} · ${c.className}` }))} />
-      )}
+      {role === 'parent' && many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={options} />}
       <div className="stats-grid">
         <StatsCard label={t('attendance.rate')} value={fmtPct(rate)} hint={t('attendance.sinceStart')} />
         <StatsCard label={t('attendance.present')} value={count('present')} hint={t('attendance.ofDays', { n: records.length })} />

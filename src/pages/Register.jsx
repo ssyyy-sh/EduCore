@@ -42,8 +42,16 @@ export default function Register() {
     const res = await register({ name: form.name, email: form.email, password: form.password, role: type, org: type === 'school' ? form.org : undefined });
     setLoading(false);
     if (!res.ok) {
-      const msg = { exists: t('auth.register.errExists'), weak: t('auth.errPassLen', { n: MIN_PASSWORD }), network: t('auth.login.errNetwork') }[res.error];
-      setErrors(res.error === 'network' ? { form: msg } : { email: msg });
+      const detail = res.detail || '';
+      const msg = {
+        exists: t('auth.register.errExists'),
+        weak: t('auth.errPassLen', { n: MIN_PASSWORD }),
+        network: t('auth.login.errNetwork'),
+        rate: t('auth.login.errRate'),
+        server: t('auth.login.errServer', { detail }),
+        other: t('auth.login.errOther', { detail }),
+      }[res.error] || t('auth.login.errOther', { detail });
+      setErrors(res.error === 'exists' || res.error === 'weak' ? { email: msg } : { form: msg });
       return;
     }
     if (res.confirm) return setConfirmSent(form.email.trim());

@@ -836,3 +836,12 @@ export const CHAT_SEED = [
   { id: 'cm3', from: 'demo-teacher', to: 'demo-parent', body: L('Of course — I have booked 15:20 for you. See you there.', 'Конечно — записал вас на 15:20. До встречи.', 'Albatta — sizni 15:20 ga yozib qo‘ydim. Ko‘rishguncha.'), at: at(-1, 18, 41), readAt: null },
   { id: 'cm4', from: 'demo-teacher', to: 'demo-student', body: L('Alex, great work on the quiz. Bring your notebook tomorrow — we start quadratic inequalities.', 'Alex, отличная работа на тесте. Завтра возьми тетрадь — начинаем квадратные неравенства.', 'Alex, testda a’lo ish. Ertaga daftaringni olib kel — kvadrat tengsizliklarni boshlaymiz.'), at: at(0, 8, 5), readAt: null },
 ];
+
+/** Links of the demo accounts (browser mode): student → Alex, parent → the three Morgan children, teacher → Mr. Hayes. */
+export const DEMO_LINKS = [
+  { id: 'dl1', profileId: 'demo-student', kind: 'student', studentId: DEMO_STUDENT_IDS.alex, studentName: 'Alex Morgan', className: '9-A' },
+  { id: 'dl2', profileId: 'demo-parent', kind: 'parent', studentId: DEMO_STUDENT_IDS.alex, studentName: 'Alex Morgan', className: '9-A' },
+  { id: 'dl3', profileId: 'demo-parent', kind: 'parent', studentId: DEMO_STUDENT_IDS.emma, studentName: 'Emma Morgan', className: '6-C' },
+  { id: 'dl4', profileId: 'demo-parent', kind: 'parent', studentId: DEMO_STUDENT_IDS.daniel, studentName: 'Daniel Morgan', className: '3-B' },
+  { id: 'dl5', profileId: 'demo-teacher', kind: 'teacher', teacherId: 't-hayes', teacherName: 'Daniel Hayes', subject: 'Mathematics', classes: ['9-A', '9-C', '10-B', '11-A'] },
+];

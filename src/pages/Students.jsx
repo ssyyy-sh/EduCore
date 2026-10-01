@@ -19,7 +19,9 @@ export default function Students() {
   const [status, setStatus] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
-  const { toast, students, addStudent, role } = useApp();
+  const { toast, students: allStudents, addStudent, role, myClasses } = useApp();
+  // A teacher sees only the students of their own classes.
+  const students = useMemo(() => (role === 'teacher' ? allStudents.filter((s) => myClasses.includes(s.className)) : allStudents), [allStudents, role, myClasses]);
   const { t, tStatus, fmtNum } = useI18n();
 
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function Students() {
         ]}
       />
 
-      <StudentTable initialQuery={params.get('q') ?? ''} initialClass={params.get('class') ?? ''} initialStatus={status} onOpen={setDrawer} />
+      <StudentTable students={students} initialQuery={params.get('q') ?? ''} initialClass={params.get('class') ?? ''} initialStatus={status} onOpen={setDrawer} />
       <StudentDrawer student={drawer ? students.find((x) => x.id === drawer.id) || drawer : null} onClose={() => setDrawer(null)} />
 
       <Modal

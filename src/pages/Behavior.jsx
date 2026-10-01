@@ -3,7 +3,8 @@ import { FiThumbsUp, FiAlertCircle, FiTrash2, FiStar } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Avatar, Modal, EmptyState, Segmented, SearchInput, Select } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, CHILDREN, CLASSES, GRADE_LEVELS } from '../data/mock.js';
+import { CLASSES, GRADE_LEVELS } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -42,11 +43,12 @@ function Entry({ b, canDelete, onDelete, showStudent, studentName }) {
 
 /* ---------- Teacher / admin ---------- */
 function StaffBehavior() {
-  const { role, students, behavior, addBehavior, removeBehavior, toast } = useApp();
+  const { role, students, behavior, addBehavior, removeBehavior, toast, myClasses } = useApp();
   const { user } = useAuth();
   const { t } = useI18n();
   const isTeacher = role === 'teacher';
-  const [cls, setCls] = useState(isTeacher ? TEACHER_CLASSES[0].name : '9-A');
+  const [pick, setCls] = useState(null);
+  const cls = isTeacher ? (myClasses.includes(pick) ? pick : myClasses[0] || '') : pick || '9-A';
   const [year, setYear] = useState('9');
   const [q, setQ] = useState('');
   const [form, setForm] = useState(null); // { student, kind, category, note }
@@ -70,7 +72,7 @@ function StaffBehavior() {
       <PageHeader title={t('behavior.title')} description={isTeacher ? t('behavior.subTeacher') : t('behavior.subAdmin')} />
       <div className="filters-row">
         {isTeacher ? (
-          <Segmented label={t('table.class')} value={cls} onChange={setCls} options={TEACHER_CLASSES.map((c) => ({ value: c.name, label: c.name }))} />
+          <Segmented label={t('table.class')} value={cls} onChange={setCls} options={myClasses.map((c) => ({ value: c, label: c }))} />
         ) : (
           <div className="filters-row-right">
             <Select
@@ -212,15 +214,14 @@ function StaffBehavior() {
 function FamilyBehavior() {
   const { role, behavior } = useApp();
   const { t } = useI18n();
-  const [childId, setChildId] = useState('alex');
-  const child = CHILDREN.find((c) => c.id === (role === 'student' ? 'alex' : childId));
+  const { child, childId, setChildId, options, many } = useChild();
   const [filter, setFilter] = useState('all');
   const list = behavior.filter((b) => b.studentId === child.studentId);
   const shown = list.filter((b) => filter === 'all' || b.kind === filter);
   return (
     <div className="page">
       <PageHeader title={t('behavior.title')} description={t('behavior.subFamily', { name: child.full, cls: child.className })} />
-      {role === 'parent' && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((c) => ({ value: c.id, label: `${c.name} · ${c.className}` }))} />}
+      {role === 'parent' && many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={options} />}
       <div className="stats-grid stats-grid-3">
         <StatsCard icon={FiThumbsUp} label={t('behavior.praiseTerm')} value={list.filter((b) => b.kind === 'praise').length} />
         <StatsCard icon={FiAlertCircle} label={t('behavior.remarkTerm')} value={list.filter((b) => b.kind === 'remark').length} />

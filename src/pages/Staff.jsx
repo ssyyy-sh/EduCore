@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiUserPlus, FiMoreHorizontal, FiEdit2, FiArchive, FiRotateCcw, FiCopy, FiX, FiUsers, FiDownload } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
+import { TeacherAccount } from '../components/dashboard/AccountLinks.jsx';
 import { Avatar, SearchInput, Select, Segmented, Pagination, Status, Modal, Menu, EmptyState } from '../components/ui/index.jsx';
 import { CLASSES, GRADE_LEVELS } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
@@ -53,7 +54,7 @@ function ClassChips({ value, onChange }) {
 }
 
 export default function Staff() {
-  const { teachers, tutors, students, addTeacher, editTeacher, setTutor, toast } = useApp();
+  const { teachers, tutors, students, addTeacher, editTeacher, setTutor, toast, linkByEmail } = useApp();
   const { createAccount, remote } = useAuth();
   const { t, ts, tStatus, fmtNum } = useI18n();
   const [tab, setTab] = useState('teachers');
@@ -93,7 +94,9 @@ export default function Staff() {
     setAddForm({ ...addForm, busy: true, errors: {} });
     const res = await createAccount({ name: addForm.name, email: addForm.email, password, role: 'teacher' });
     if (!res.ok) return setAddForm({ ...addForm, busy: false, errors: { email: res.error === 'exists' ? t('auth.register.errExists') : t('auth.login.errNetwork') } });
-    addTeacher({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), subject: addForm.subject, classes: addForm.classes });
+    const card = addTeacher({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), subject: addForm.subject, classes: addForm.classes });
+    // The new account opens this teacher's classes as soon as it signs in.
+    await linkByEmail('teacher', card, card.email);
     setAddForm(null);
     setCreated({ name: addForm.name.trim(), email: addForm.email.trim().toLowerCase(), password: res.invite ? null : password });
   };
@@ -411,6 +414,7 @@ export default function Staff() {
               </select>
             </div>
             <ClassChips value={edit.classes} onChange={(classesV) => setEdit({ ...edit, classes: classesV })} />
+            <TeacherAccount teacher={teachers.find((x) => x.id === edit.id) || edit} />
           </>
         )}
       </Modal>

@@ -59,7 +59,7 @@ export function PasswordInput({ id, value, onChange, autoComplete, placeholder, 
   );
 }
 
-const LOGIN_ERRORS = { unconfirmed: 'auth.login.errUnconfirmed', blocked: 'auth.login.errBlocked', network: 'auth.login.errNetwork' };
+const LOGIN_ERRORS = { unconfirmed: 'auth.login.errUnconfirmed', blocked: 'auth.login.errBlocked', network: 'auth.login.errNetwork', rate: 'auth.login.errRate', server: 'auth.login.errServer', other: 'auth.login.errOther' };
 
 export default function Login() {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ export default function Login() {
     const res = await login(email, password);
     setLoading(false);
     if (!res.ok) {
-      setError(t(LOGIN_ERRORS[res.error] || 'auth.login.errInvalid'));
+      setError(t(LOGIN_ERRORS[res.error] || 'auth.login.errInvalid', { detail: res.detail || '' }));
       return;
     }
     if (res.role === 'pending') return navigate('/app', { replace: true });
@@ -96,7 +96,7 @@ export default function Login() {
     setError('');
     const res = await sendReset(email);
     if (res.ok) setResetSent(true);
-    else setError(t('auth.login.errNetwork'));
+    else setError(t(LOGIN_ERRORS[res.error] || 'auth.login.errNetwork', { detail: res.detail || '' }));
   };
 
   return (

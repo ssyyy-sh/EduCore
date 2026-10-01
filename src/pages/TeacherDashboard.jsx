@@ -5,7 +5,7 @@ import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Bars } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Status, SearchInput, Modal, EmptyState, Bar } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, TEACHER_SUBMISSIONS, TEACHER_ATTENDANCE_WEEK, GRADE_DISTRIBUTION, TODAY, addDays, schoolDays, isoDay } from '../data/mock.js';
+import { TEACHER_SUBMISSIONS, TODAY, addDays, schoolDays, isoDay } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -14,12 +14,22 @@ import { greetingKey } from '../components/dashboard/greeting.js';
 const lowerFirst = (str) => (str ? str.charAt(0).toLowerCase() + str.slice(1) : str);
 const LAST_DAY = schoolDays(1)[0] || TODAY;
 const SUBJECT_OF = { 'Algebra I': 'Mathematics', Geometry: 'Mathematics', 'Pre-calculus': 'Mathematics' };
+const BANDS = [
+  ['<60', 0, 60],
+  ['60–69', 60, 70],
+  ['70–79', 70, 80],
+  ['80–89', 80, 90],
+  ['90–100', 90, 101],
+];
+const mean = (xs) => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : 0);
 
 export default function TeacherDashboard() {
-  const [active, setActive] = useState('9-A');
+  const { toast, students, getAttendance, saveAttendanceDay, addAssignment, assignments, myTeacherClasses: classes, teacherLink } = useApp();
+  const [pick, setActive] = useState(null);
+  const active = classes.some((c) => c.name === pick) ? pick : classes[0]?.name || '';
   const [q, setQ] = useState('');
   const [modal, setModal] = useState(false);
-  const { toast, students, getAttendance, saveAttendanceDay, addAssignment, assignments } = useApp();
+  const isDemo = teacherLink?.teacherId === 't-hayes';
   const { user } = useAuth();
   const { t, tr, ts, fmtDec, fmtDate, relativeDue } = useI18n();
   const dayIso = isoDay(LAST_DAY);
@@ -27,15 +37,28 @@ export default function TeacherDashboard() {
   const [draft, setDraft] = useState({});
   const statusOf = (s) => draft[active]?.[s.id] ?? getAttendance(s, dayIso);
 
-  const [form, setForm] = useState({ title: '', cls: '9-A', due: isoDay(addDays(TODAY, 7)), instr: '' });
+  const [form, setForm] = useState({ title: '', cls: '', due: isoDay(addDays(TODAY, 7)), instr: '' });
   const [formErr, setFormErr] = useState('');
 
-  const cls = TEACHER_CLASSES.find((c) => c.name === active);
-  const roster = useMemo(() => students.filter((s) => s.className === active), [students, active]);
+  const cls = classes.find((c) => c.name === active) || { attendance: 0, avg: 0 };
+  const roster = useMemo(() => students.filter((s) => s.className === active && s.status !== 'Inactive'), [students, active]);
   const filtered = roster.filter((s) => s.name.toLowerCase().includes(q.trim().toLowerCase()));
-  const myStudents = TEACHER_CLASSES.reduce((a, c) => a + students.filter((s) => s.className === c.name).length, 0);
-  const toReview = TEACHER_SUBMISSIONS.reduce((a, s) => a + (s.due < TODAY ? 0 : s.submitted), 0);
-  const created = assignments.filter((a) => a.created).length;
+  const myStudents = classes.reduce((a, c) => a + students.filter((s) => s.className === c.name && s.status !== 'Inactive').length, 0);
+  const mine = assignments.filter((a) => a.mine && a.created);
+  const ungraded = assignments.reduce((n, a) => n + (a.submissions || []).filter((x) => !x.grade).length, 0);
+  const toReview = (isDemo ? TEACHER_SUBMISSIONS.reduce((a, s) => a + (s.due < TODAY ? 0 : s.submitted), 0) : 0) + ungraded;
+  const created = mine.length;
+  // Real numbers for the lists and charts (the demo teacher also keeps the sample assignment progress).
+  const subList = isDemo
+    ? TEACHER_SUBMISSIONS
+    : mine
+        .sort((a, b) => b.due - a.due)
+        .slice(0, 4)
+        .map((a) => ({ id: a.id, title: a.title, cls: a.cls, submitted: (a.submissions || []).length, total: Math.max(1, students.filter((s) => s.className === a.cls && s.status !== 'Inactive').length), due: a.due }));
+  const week = schoolDays(5)
+    .reverse()
+    .map((d) => ({ day: t(`weekdaysShort.${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()]}`), present: roster.filter((s) => getAttendance(s, isoDay(d)) !== 'absent').length }));
+  const dist = BANDS.map(([band, lo, hi]) => ({ band, count: roster.filter((s) => !s.isNew && s.score >= lo && s.score < hi).length }));
 
   const openModal = () => {
     setForm({ title: t('dash.teacher.fTitleDefault'), cls: active, due: isoDay(addDays(TODAY, 7)), instr: t('dash.teacher.fInstrDefault') });
@@ -47,11 +70,11 @@ export default function TeacherDashboard() {
       setFormErr(t('dash.teacher.errTitle'));
       return;
     }
-    const clsInfo = TEACHER_CLASSES.find((c) => c.name === form.cls);
+    const clsInfo = classes.find((c) => c.name === form.cls);
     const title = form.title.trim();
     addAssignment({
       title: { en: title, ru: title, uz: title },
-      subject: SUBJECT_OF[clsInfo?.subject] || 'Mathematics',
+      subject: SUBJECT_OF[clsInfo?.subject] || clsInfo?.subject || teacherLink?.subject || 'Mathematics',
       teacher: user.name,
       due: new Date(`${form.due}T23:59:00`),
       type: 'Homework',
@@ -88,8 +111,8 @@ export default function TeacherDashboard() {
 
       <div className="stats-grid">
         <StatsCard icon={FiUsers} label={t('dash.teacher.myStudents')} value={myStudents} hint={t('dash.teacher.acrossClasses')} />
-        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${fmtDec(92.8)}%`} delta={0.4} deltaLabel={`+${fmtDec(0.4)}%`} hint={t('dash.stats.thisWeek')} />
-        <StatsCard icon={FiAward} label={t('dash.stats.avgGrade')} value={`${fmtDec(82.3)}%`} delta={1.1} deltaLabel={`+${fmtDec(1.1)}%`} hint={t('dash.teacher.vsLastMonth')} />
+        <StatsCard icon={FiUserCheck} label={t('dash.stats.attendance')} value={`${fmtDec(mean(classes.map((c) => c.attendance)))}%`} hint={t('dash.teacher.acrossClasses')} />
+        <StatsCard icon={FiAward} label={t('dash.stats.avgGrade')} value={`${fmtDec(mean(classes.map((c) => c.avg)))}%`} hint={t('dash.teacher.acrossClasses')} />
         <StatsCard icon={FiCheckSquare} label={t('dash.teacher.toReview')} value={toReview} hint={created ? t('dash.teacher.createdCount', { n: created }) : t('dash.teacher.waiting')} />
       </div>
 
@@ -98,8 +121,8 @@ export default function TeacherDashboard() {
           <h2>{t('dash.teacher.myClasses')}</h2>
         </div>
         <div className="class-grid">
-          {TEACHER_CLASSES.map((c) => {
-            const n = students.filter((s) => s.className === c.name).length;
+          {classes.map((c) => {
+            const n = students.filter((s) => s.className === c.name && s.status !== 'Inactive').length;
             return (
               <button type="button" key={c.name} className={`class-card ${active === c.name ? 'is-active' : ''}`} onClick={() => { setActive(c.name); setQ(''); }} aria-pressed={active === c.name}>
                 <div className="class-card-top">
@@ -120,9 +143,12 @@ export default function TeacherDashboard() {
                     <dd className="num">{c.avg}%</dd>
                   </div>
                 </dl>
-                <span className="class-next">
-                  <FiClock aria-hidden="true" /> {t(`weekdaysShort.${c.next.day}`)} {c.next.time} · {c.next.room}
-                </span>
+                {c.next && (
+                  <span className="class-next">
+                    <FiClock aria-hidden="true" /> {t(`weekdaysShort.${c.next.day}`)} {c.next.time}
+                    {c.next.room ? ` · ${c.next.room}` : ''}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -210,8 +236,9 @@ export default function TeacherDashboard() {
               </Link>
             </div>
             <div className="panel-body">
+              {subList.length === 0 && <p className="muted-note">{t('dash.teacher.noCreated')}</p>}
               <ul className="submission-list">
-                {TEACHER_SUBMISSIONS.map((s) => (
+                {subList.map((s) => (
                   <li key={s.id}>
                     <div className="sub-top">
                       <strong>{tr(s.title)}</strong>
@@ -229,12 +256,12 @@ export default function TeacherDashboard() {
           <section className="panel">
             <div className="panel-head">
               <div>
-                <h3>{t('dash.teacher.attendanceTitle', { cls: '9-A' })}</h3>
+                <h3>{t('dash.teacher.attendanceTitle', { cls: active })}</h3>
                 <p>{t('dash.teacher.attendanceSub')}</p>
               </div>
             </div>
             <div className="panel-body">
-              <Bars data={TEACHER_ATTENDANCE_WEEK.map((d) => ({ ...d, day: t(`weekdaysShort.${d.day}`) }))} x="day" y="present" yDomain={[0, 27]} names={{ present: t('dash.teacher.presentSeries') }} height={160} digits={0} />
+              <Bars data={week} x="day" y="present" yDomain={[0, Math.max(1, roster.length)]} names={{ present: t('dash.teacher.presentSeries') }} height={160} digits={0} />
             </div>
           </section>
         </div>
@@ -243,7 +270,7 @@ export default function TeacherDashboard() {
       <section className="panel">
         <div className="panel-head">
           <div>
-            <h3>{t('dash.teacher.distTitle', { cls: '9-A' })}</h3>
+            <h3>{t('dash.teacher.distTitle', { cls: active })}</h3>
             <p>{t('dash.teacher.distSub')}</p>
           </div>
           <Link to="/app/analytics" className="link-more">
@@ -251,7 +278,7 @@ export default function TeacherDashboard() {
           </Link>
         </div>
         <div className="panel-body">
-          <Bars data={GRADE_DISTRIBUTION} x="band" y="count" names={{ count: t('dash.teacher.studentsSeries') }} height={200} digits={0} />
+          <Bars data={dist} x="band" y="count" names={{ count: t('dash.teacher.studentsSeries') }} height={200} digits={0} />
         </div>
       </section>
 
@@ -284,7 +311,7 @@ export default function TeacherDashboard() {
               {t('dash.teacher.fClass')}
             </label>
             <select id="na-class" className="input select-native" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-              {TEACHER_CLASSES.map((c) => (
+              {classes.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>

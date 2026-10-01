@@ -30,7 +30,8 @@ export function Change({ value }) {
 
 /** Recent grades list for dashboards. */
 export default function RecentGrades({ items }) {
-  const { tr, ts, fmtDate } = useI18n();
+  const { t, tr, ts, fmtDate } = useI18n();
+  if (!items.length) return <p className="muted-note">{t('common.noGradesYet')}</p>;
   return (
     <ul className="recent-grades">
       {items.map((g) => (

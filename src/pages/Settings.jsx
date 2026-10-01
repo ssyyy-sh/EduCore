@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiUser, FiBell, FiShield, FiMonitor, FiSun, FiMoon, FiLock, FiUsers, FiCheck, FiMinus, FiLogOut, FiSmartphone } from 'react-icons/fi';
+import { FiUser, FiBell, FiShield, FiMonitor, FiSun, FiMoon, FiLock, FiUsers, FiCheck, FiMinus, FiLogOut, FiSmartphone, FiLink } from 'react-icons/fi';
+import { MyLinks } from '../components/LinkAccount.jsx';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { Switch, Avatar, Modal } from '../components/ui/index.jsx';
 import { useApp, NOTIF_TYPES } from '../context/AppContext.jsx';
@@ -11,8 +12,9 @@ import { MIN_PASSWORD } from '../config.js';
 import { useRoleMeta } from '../components/dashboard/useRoleMeta.js';
 import { useInstall } from '../lib/pwa.js';
 
-const SECTIONS = [
+const ALL_SECTIONS = [
   { key: 'profile', icon: FiUser },
+  { key: 'links', icon: FiLink, roles: ['student', 'parent', 'teacher'] },
   { key: 'notifications', icon: FiBell },
   { key: 'appearance', icon: FiMonitor },
   { key: 'security', icon: FiShield },
@@ -48,7 +50,8 @@ function InstallApp() {
 }
 
 export default function Settings() {
-  const { theme, setTheme, toast, prefs, setPref } = useApp();
+  const { theme, setTheme, toast, prefs, setPref, role } = useApp();
+  const SECTIONS = useMemo(() => ALL_SECTIONS.filter((s) => !s.roles || s.roles.includes(role)), [role]);
   const { user, updateProfile, changePassword, logout, remote } = useAuth();
   const { t, lang, setLang } = useI18n();
   const meta = useRoleMeta();
@@ -66,7 +69,7 @@ export default function Settings() {
   useEffect(() => {
     const s = params.get('section');
     if (s && SECTIONS.some((x) => x.key === s)) setSection(s);
-  }, [params]);
+  }, [params, SECTIONS]);
 
   const saveProfile = (e) => {
     e.preventDefault();
@@ -273,6 +276,8 @@ export default function Settings() {
               </div>
             </section>
           )}
+
+          {section === 'links' && SECTIONS.some((s) => s.key === 'links') && <MyLinks />}
 
           {section === 'roles' && (
             <section className="panel">

@@ -9,6 +9,10 @@ import { useI18n } from '../i18n/I18nContext.jsx';
 import { canAccess, homeFor, ACCESS, viewRoleFor } from '../lib/access.js';
 import { EmptyState } from '../components/ui/index.jsx';
 import { readJSON, writeJSON } from '../lib/storage.js';
+import { LinkGate } from '../components/LinkAccount.jsx';
+
+// Pages that work before the school has linked the account.
+const NO_LINK_NEEDED = ['messages', 'notifications', 'settings', 'announcements', 'owner'];
 
 function MobileTabBar({ onMore }) {
   const { role } = useApp();
@@ -52,7 +56,7 @@ function NoAccess({ role }) {
 
 export default function AppLayout() {
   const { pathname } = useLocation();
-  const { role, isOwner, setViewAs, ready } = useApp();
+  const { role, isOwner, setViewAs, ready, linked } = useApp();
   const [collapsed, setCollapsed] = useState(() => readJSON('educore.sidebar', false) === true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -85,7 +89,9 @@ export default function AppLayout() {
             </div>
           ) : !allowed ? (
             <NoAccess role={role} />
-          ) : wanted !== role ? null : (
+          ) : wanted !== role ? null : !linked && !NO_LINK_NEEDED.includes(page) ? (
+            <LinkGate />
+          ) : (
             <Outlet />
           )}
         </main>

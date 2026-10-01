@@ -10,7 +10,7 @@ import { saveFile, openFile, formatSize, MAX_FILE_MB } from '../lib/files.js';
 
 const ACCEPT = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.heic';
 const MAX_FILES = 5;
-const isMine = (a) => a.teacher === 'Mr. Hayes' || a.created;
+const toReview = (a) => a.mine && (a.submissions || []).some((x) => !x.grade);
 
 function FileList({ files, onRemove }) {
   const { t } = useI18n();
@@ -52,7 +52,8 @@ export default function Assignments() {
   const [fileErr, setFileErr] = useState('');
   const [grade, setGrade] = useState(null);
   const [feedback, setFeedback] = useState('');
-  const { toast, role, assignments, submitWork, gradeSubmission } = useApp();
+  const [subSid, setSubSid] = useState(null);
+  const { toast, role, assignments, submitWork, gradeSubmission, children } = useApp();
   const { t, tr, ts, fmtDate, relativeDue } = useI18n();
   const isTeacher = role === 'teacher';
 
@@ -66,7 +67,7 @@ export default function Assignments() {
       Pending: assignments.filter((a) => a.status === 'Pending').length,
       Overdue: assignments.filter((a) => a.status === 'Overdue').length,
       Completed: assignments.filter((a) => a.status === 'Completed').length,
-      review: assignments.filter((a) => isMine(a) && a.submission && !a.submission.grade).length,
+      review: assignments.filter(toReview).length,
     }),
     [assignments]
   );
@@ -74,22 +75,27 @@ export default function Assignments() {
   const rows = useMemo(() => {
     const n = q.trim().toLowerCase();
     return assignments
-      .filter((a) => (tab === 'all' || (tab === 'review' ? isMine(a) && a.submission && !a.submission.grade : a.status === tab)) && (!subject || a.subject === subject) && (!n || tr(a.title).toLowerCase().includes(n) || a.teacher.toLowerCase().includes(n) || ts(a.subject).toLowerCase().includes(n)))
+      .filter((a) => (tab === 'all' || (tab === 'review' ? toReview(a) : a.status === tab)) && (!subject || a.subject === subject) && (!n || tr(a.title).toLowerCase().includes(n) || a.teacher.toLowerCase().includes(n) || ts(a.subject).toLowerCase().includes(n)))
       .sort((a, b) => (a.due - b.due) * (sortDir === 'asc' ? 1 : -1));
   }, [assignments, tab, subject, q, sortDir, tr, ts]);
 
   const open = assignments.find((a) => a.id === openId) || null;
-  const sub = open?.submission || null;
-  const canSubmit = role === 'student' && open && open.status !== 'Completed';
-  const canGrade = isTeacher && open && sub && isMine(open);
+  // Staff pick one of the submissions; a student or parent sees the child's own.
+  const staffSubs = open && !isTeacher && role !== 'school' ? [] : open?.submissions || [];
+  const sub = isTeacher || role === 'school' ? staffSubs.find((x) => x.studentId === subSid) || staffSubs.find((x) => !x.grade) || staffSubs[0] || null : open?.submission || null;
+  const canSubmit = role === 'student' && open && open.status !== 'Completed' && !!open.child;
+  const canGrade = isTeacher && open && sub && open.mine;
 
   useEffect(() => {
     setFiles([]);
     setComment('');
     setFileErr('');
+    setSubSid(null);
+  }, [openId]);
+  useEffect(() => {
     setGrade(sub?.grade ?? null);
     setFeedback(sub?.feedback ?? '');
-  }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [openId, sub?.studentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickFiles = (list) => {
     setFileErr('');
@@ -130,10 +136,12 @@ export default function Assignments() {
 
   const saveGrade = async () => {
     if (!grade) return;
-    const ok = await gradeSubmission(open, { grade, feedback: feedback.trim() });
+    const ok = await gradeSubmission(open, sub.studentId, { grade, feedback: feedback.trim() });
     if (ok === false) return;
     toast(t('submit.graded', { grade, title: tr(open.title) }));
-    setOpenId(null);
+    const next = staffSubs.find((x) => !x.grade && x.studentId !== sub.studentId);
+    if (next) setSubSid(next.studentId);
+    else setOpenId(null);
   };
 
   return (
@@ -207,6 +215,7 @@ export default function Assignments() {
                         <span className="person-sub">
                           {t(`types.${a.type}`)} · {t('assignments.weight', { w: a.weight })}
                           {a.cls ? ` · ${a.cls}` : ''}
+                          {role === 'parent' && children.length > 1 && a.child ? ` · ${a.child.name}` : ''}
                         </span>
                       </div>
                     </td>
@@ -226,7 +235,13 @@ export default function Assignments() {
                     <td data-label={t('assignments.colStatus')}>
                       <span className="status-stack">
                         <Status value={a.status} />
-                        {a.submission?.grade ? <GradeChip value={a.submission.grade} /> : a.submission && <span className="person-sub">{t('submit.awaiting')}</span>}
+                        {a.submissions ? (
+                          a.submissions.length > 0 && <span className="person-sub">{t('submit.countSent', { n: a.submissions.length, open: a.submissions.filter((x) => !x.grade).length })}</span>
+                        ) : a.submission?.grade ? (
+                          <GradeChip value={a.submission.grade} />
+                        ) : (
+                          a.submission && <span className="person-sub">{t('submit.awaiting')}</span>
+                        )}
                       </span>
                     </td>
                   </tr>
@@ -297,10 +312,22 @@ export default function Assignments() {
             </dl>
             <p className="detail-text">{open.instructions || t('assignments.details')}</p>
 
+            {staffSubs.length > 1 && (
+              <div className="sub-picker" role="list" aria-label={t('submit.works')}>
+                {staffSubs.map((x) => (
+                  <button key={x.studentId} type="button" role="listitem" className={`chip-btn ${sub?.studentId === x.studentId ? 'is-active' : ''}`} onClick={() => setSubSid(x.studentId)} aria-pressed={sub?.studentId === x.studentId}>
+                    <Avatar name={x.studentName || '—'} size={20} />
+                    {x.studentName || x.studentId}
+                    {x.grade ? <GradeChip value={x.grade} /> : <span className="dot-new" aria-label={t('submit.awaiting')} />}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(isTeacher || role === 'school') && staffSubs.length === 0 && <p className="hint">{t('submit.noneYet')}</p>}
             {sub && (
               <div className="submission-box">
                 <div className="submission-head">
-                  <strong>{isTeacher ? t('submit.fromStudent', { name: sub.studentName || 'Alex Morgan', cls: '9-A' }) : t('submit.yourWork')}</strong>
+                  <strong>{isTeacher || role === 'school' ? t('submit.fromStudent', { name: sub.studentName || '—', cls: sub.className || open.cls || '' }) : role === 'parent' ? t('submit.fromStudent', { name: open.child?.full || sub.studentName || '—', cls: open.child?.className || '' }) : t('submit.yourWork')}</strong>
                   <span className="person-sub num">
                     {t('submit.sentAt', { date: fmtDate(new Date(sub.at), { day: 'numeric', month: 'long' }), time: new Date(sub.at).toTimeString().slice(0, 5) })}
                   </span>
@@ -318,7 +345,7 @@ export default function Assignments() {
                   ))}
               </div>
             )}
-            {open.status === 'Completed' && !sub && <p className="hint">{t('submit.doneOffline')}</p>}
+            {!isTeacher && role !== 'school' && open.status === 'Completed' && !sub && <p className="hint">{t('submit.doneOffline')}</p>}
 
             {canSubmit && (
               <div className="submit-form">
@@ -366,7 +393,7 @@ export default function Assignments() {
                   </label>
                   <textarea id="sub-feedback" className="input textarea" rows={3} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder={t('submit.feedbackPh')} />
                 </div>
-                <p className="hint">{t('submit.toGradebook', { cls: open.cls || '9-A' })}</p>
+                <p className="hint">{t('submit.toGradebook', { cls: sub.className || open.cls })}</p>
               </div>
             )}
           </>

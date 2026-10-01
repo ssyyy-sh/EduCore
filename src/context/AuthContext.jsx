@@ -159,7 +159,7 @@ function LocalAuthProvider({ children }) {
   }, [account]);
 
   // Everyone who can be messaged in the demo (name and role only).
-  const directory = useMemo(() => (account ? accounts.filter((a) => !a.hidden).map((a) => ({ id: a.id, name: a.name, role: a.role })) : []), [account, accounts]);
+  const directory = useMemo(() => (account ? accounts.filter((a) => !a.hidden).map((a) => ({ id: a.id, name: a.name, role: a.role, email: a.email })) : []), [account, accounts]);
 
   const value = useMemo(
     () => ({ status: 'ready', remote: false, directory, user, login, register, createAccount, logout, updateProfile, changePassword, allAccounts, setAccountRole, resetPassword, deleteAccount }),

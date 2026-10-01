@@ -34,8 +34,9 @@ export function exportStudentsCSV(rows, t, tStatus, filename = 'educore-students
   ]);
 }
 
-export default function StudentTable({ initialQuery = '', initialStatus = '', initialClass = '', pageSize: initialSize = 25, onOpen, title, compact }) {
-  const { toast, students, archiveStudent } = useApp();
+export default function StudentTable({ students: list, initialQuery = '', initialStatus = '', initialClass = '', pageSize: initialSize = 25, onOpen, title, compact }) {
+  const { toast, students: all, archiveStudent } = useApp();
+  const students = list || all;
   const { t, tStatus, fmtDec } = useI18n();
   const navigate = useNavigate();
   const [q, setQ] = useState(initialQuery);

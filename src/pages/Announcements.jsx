@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FiPlus, FiTrash2, FiVolume2 } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { Avatar, Modal, EmptyState, Segmented } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, CLASSES } from '../data/mock.js';
+import { CLASSES } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -11,10 +11,10 @@ const TITLE_MAX = 90;
 const BODY_MAX = 1200;
 
 export default function Announcements() {
-  const { role, announcements, addAnnouncement, removeAnnouncement, toast } = useApp();
+  const { role, announcements, addAnnouncement, removeAnnouncement, toast, myClasses } = useApp();
   const { user } = useAuth();
   const { t, tr, fmtDate } = useI18n();
-  const canPost = role === 'school' || role === 'teacher';
+  const canPost = role === 'school' || (role === 'teacher' && myClasses.length > 0);
   const [form, setForm] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -32,7 +32,7 @@ export default function Announcements() {
           { value: 'teachers', label: t('announcements.aud.teachers') },
           ...CLASSES.map((c) => ({ value: `class:${c.name}`, label: t('announcements.aud.class', { cls: c.name }) })),
         ]
-      : TEACHER_CLASSES.map((c) => ({ value: `class:${c.name}`, label: t('announcements.aud.class', { cls: c.name }) }));
+      : myClasses.map((c) => ({ value: `class:${c}`, label: t('announcements.aud.class', { cls: c }) }));
 
   const list = filter === 'mine' ? announcements.filter(mine) : announcements;
 

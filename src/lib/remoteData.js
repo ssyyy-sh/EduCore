@@ -8,7 +8,7 @@ import { supabase, fetchAll } from './supabase.js';
 
 // Personal chats are not part of backups or resets: only the two people in a conversation can read it.
 const DATA_TABLES = ['timetable', 'meeting_slots', 'behavior', 'final_grades', 'assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'messages', 'reads', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
-export const LIVE_TABLES = ['chat_messages', 'timetable', 'meeting_slots', 'behavior', 'final_grades', 'assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
+export const LIVE_TABLES = ['account_links', 'chat_messages', 'timetable', 'meeting_slots', 'behavior', 'final_grades', 'assignments', 'attendance', 'gb_columns', 'marks', 'grade_log', 'submissions', 'announcements', 'students_added', 'student_overrides', 'teachers_added', 'teacher_overrides', 'tutors'];
 
 const isoDate = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
 
@@ -24,14 +24,16 @@ export async function loadChat(uid) {
   return data.reverse().map((m) => ({ id: m.id, from: m.sender, to: m.recipient, body: m.body, at: m.created_at, readAt: m.read_at }));
 }
 
-export async function loadAll({ uid, role, myClasses }) {
-  const allClasses = role === 'school' || role === 'owner';
-  const byClass = (col) => (q) => (allClasses || !myClasses.length ? q : q.in(col, myClasses));
+const optional = (p) => p.then((r) => (Array.isArray(r) ? r : r.error ? [] : r.data || [])).catch(() => []);
+
+// Row Level Security returns only what this account may see (own card, own children, own classes).
+export async function loadAll({ uid, role }) {
+  const isAdmin = role === 'school' || role === 'owner';
   const [assignments, attendance, columns, marks, gradeLog, submissions, announcements, messages, reads, studentsAdded, overrides, teachersAdded, teacherOverrides, tutors, me] = await Promise.all([
     fetchAll('assignments', undefined, ['created_at', 'id']),
-    fetchAll('attendance', byClass('class_name'), ['day', 'class_name', 'student_id']),
+    fetchAll('attendance', undefined, ['day', 'class_name', 'student_id']),
     fetchAll('gb_columns', undefined, ['class_name', 'id']),
-    fetchAll('marks', byClass('class_name'), ['class_name', 'student_id', 'column_id']),
+    fetchAll('marks', undefined, ['class_name', 'student_id', 'column_id']),
     supabase.from('grade_log').select('*').order('at', { ascending: false }).limit(200).then((r) => { if (r.error) throw r.error; return r.data; }),
     fetchAll('submissions', undefined, ['assignment_id', 'student_id']),
     fetchAll('announcements', undefined, ['at', 'id']),
@@ -44,13 +46,15 @@ export async function loadAll({ uid, role, myClasses }) {
     fetchAll('tutors', undefined, ['class_name']),
     supabase.from('profiles').select('prefs').eq('id', uid).maybeSingle(),
   ]);
-  const [timetable, slots, behavior, finals, chat, contacts] = await Promise.all([
+  const [timetable, slots, behavior, finals, chat, contacts, links, codes] = await Promise.all([
     fetchAll('timetable', undefined, ['class_name', 'day', 'period']),
     fetchAll('meeting_slots', undefined, ['starts_at', 'id']),
     fetchAll('behavior', (q) => q.order('at', { ascending: false }).limit(1000)),
-    fetchAll('final_grades', byClass('class_name'), ['class_name', 'student_id', 'subject']),
+    fetchAll('final_grades', undefined, ['class_name', 'student_id', 'subject']),
     loadChat(uid),
     supabase.rpc('chat_contacts').then((r) => (r.error ? [] : r.data || [])),
+    optional(supabase.from('account_links').select('*').order('created_at', { ascending: false }).limit(5000)),
+    isAdmin ? optional(supabase.from('link_codes').select('*').is('used_by', null).order('created_at', { ascending: false }).limit(2000)) : Promise.resolve([]),
   ]);
 
   const attendanceMap = {};
@@ -61,7 +65,7 @@ export async function loadAll({ uid, role, myClasses }) {
   const gradebook = {};
   const gb = (cls) => (gradebook[cls] ||= { columns: [], removed: [], marks: {} });
   for (const c of columns) {
-    if (!c.is_seed) gb(c.class_name).columns.push({ id: c.id, title: c.title, titleL: c.title_l || undefined, date: c.date, type: c.type, fromAssignment: c.from_assignment || undefined });
+    if (!c.is_seed) gb(c.class_name).columns.push({ id: c.id, title: c.title, titleL: c.title_l || undefined, date: c.date, type: c.type, fromAssignment: c.from_assignment || undefined, subject: c.subject || undefined });
     if (c.removed) gb(c.class_name).removed.push(c.id);
   }
   for (const m of marks) (gb(m.class_name).marks[m.student_id] ||= {})[m.column_id] = m.grade;
@@ -79,7 +83,7 @@ export async function loadAll({ uid, role, myClasses }) {
     gradebook,
     gradeLog: gradeLog.map((g) => ({ id: g.id, studentId: g.student_id, subject: g.subject, work: g.work, grade: g.grade, at: g.at })),
     submissions: Object.fromEntries(
-      submissions.map((s) => [s.assignment_id, { studentId: s.student_id, studentName: s.student_name, files: s.files || [], comment: s.comment || '', at: s.at, grade: s.grade, feedback: s.feedback || '', gradedAt: s.graded_at }])
+      submissions.map((s) => [`${s.assignment_id}|${s.student_id}`, { studentId: s.student_id, studentName: s.student_name, className: s.class_name || undefined, files: s.files || [], comment: s.comment || '', at: s.at, grade: s.grade, feedback: s.feedback || '', gradedAt: s.graded_at }])
     ),
     announcements: [...announcements].reverse().map((a) => ({ id: a.id, title: a.title, body: a.body, audience: a.audience, author: a.author, authorId: a.author_id, at: a.at })),
     addedTeachers: [...teachersAdded].reverse().map((r) => r.data),
@@ -92,6 +96,22 @@ export async function loadAll({ uid, role, myClasses }) {
     finals: Object.fromEntries(finals.map((f) => [`${f.term}|${f.class_name}|${f.student_id}|${f.subject}`, { grade: f.grade, at: f.confirmed_at }])),
     chat,
     contacts: contacts.map((c) => ({ id: c.id, name: c.name, role: c.role })),
+    links: links.map((l) => ({
+      id: l.id,
+      profileId: l.profile_id,
+      email: l.email,
+      kind: l.kind,
+      studentId: l.student_id,
+      studentName: l.student_name,
+      className: l.class_name,
+      teacherId: l.teacher_id,
+      teacherName: l.teacher_name,
+      subject: l.subject,
+      classes: l.classes || [],
+      accountName: l.account_name,
+      createdAt: l.created_at,
+    })),
+    codes: codes.map((c) => ({ code: c.code, kind: c.kind, studentId: c.student_id, studentName: c.student_name, className: c.class_name, expiresAt: c.expires_at, usedBy: c.used_by, usedAt: c.used_at, createdAt: c.created_at })),
   };
 }
 
@@ -102,7 +122,7 @@ const upsert = (table, rows, onConflict) => supabase.from(table).upsert(rows, { 
 const insert = (table, rows) => supabase.from(table).insert(rows).then(check);
 
 export const api = {
-  submitWork: ({ assignmentId, studentId, studentName, files, comment }) => insert('submissions', { assignment_id: assignmentId, student_id: studentId, student_name: studentName, files, comment }),
+  submitWork: ({ assignmentId, studentId, studentName, cls, files, comment }) => insert('submissions', { assignment_id: assignmentId, student_id: studentId, student_name: studentName, class_name: cls, files, comment }),
   gradeSubmission: async ({ assignmentId, studentId, grade, feedback, column, cls, log }) => {
     await supabase
       .from('submissions')
@@ -110,7 +130,7 @@ export const api = {
       .eq('assignment_id', assignmentId)
       .eq('student_id', studentId)
       .then(check);
-    if (column) await upsert('gb_columns', { class_name: cls, id: column.id, title: column.title, title_l: column.titleL, date: column.date, type: column.type, from_assignment: column.fromAssignment }, 'class_name,id');
+    if (column) await upsert('gb_columns', { class_name: cls, id: column.id, title: column.title, title_l: column.titleL, date: column.date, type: column.type, from_assignment: column.fromAssignment, subject: column.subject || null }, 'class_name,id');
     await upsert('marks', { class_name: cls, student_id: studentId, column_id: `a-${assignmentId}`, grade }, 'class_name,student_id,column_id');
     await insert('grade_log', log);
   },
@@ -119,7 +139,7 @@ export const api = {
     await upsert('marks', { class_name: cls, student_id: studentId, column_id: columnId, grade }, 'class_name,student_id,column_id');
     if (log) await insert('grade_log', log);
   },
-  addColumn: ({ cls, col }) => insert('gb_columns', { class_name: cls, id: col.id, title: col.title, date: col.date, type: col.type }),
+  addColumn: ({ cls, col }) => insert('gb_columns', { class_name: cls, id: col.id, title: col.title, date: col.date, type: col.type, subject: col.subject || null }),
   removeColumn: ({ cls, colId, isSeed }) => upsert('gb_columns', { class_name: cls, id: colId, removed: true, ...(isSeed ? { is_seed: true } : {}) }, 'class_name,id'),
   saveAttendance: ({ iso, cls, map }) => {
     const rows = Object.entries(map).map(([student_id, status]) => ({ day: iso, class_name: cls, student_id, status }));
@@ -162,6 +182,28 @@ export const api = {
     if (clear.length) await supabase.from('final_grades').delete().eq('term', term).eq('class_name', cls).eq('subject', subject).in('student_id', clear).then(check);
     if (logs.length) await insert('grade_log', logs);
   },
+  addLinkCode: (c) => insert('link_codes', { code: c.code, kind: c.kind, student_id: c.studentId, student_name: c.studentName, class_name: c.className, expires_at: c.expiresAt }),
+  removeLinkCode: (code) => supabase.from('link_codes').delete().eq('code', code).then(check),
+  /** Returns { profileId, role }: profileId is set when an account with this email already exists. */
+  addLink: async (email, l) => {
+    const row = { email, kind: l.kind, student_id: l.studentId || null, student_name: l.studentName || null, class_name: l.className || null, teacher_id: l.teacherId || null, teacher_name: l.teacherName || null, subject: l.subject || null, classes: l.classes || [] };
+    const { data, error } = await supabase.from('account_links').insert(row).select('profile_id').single();
+    if (error) throw error;
+    if (data?.profile_id) {
+      const { data: p } = await supabase.from('profiles').select('role').eq('id', data.profile_id).maybeSingle();
+      return { profileId: data.profile_id, role: p?.role || null };
+    }
+    // No account yet: whoever signs up with this email gets the right role.
+    const { data: inv } = await supabase.from('invites').select('id').eq('email', email).limit(1);
+    if (!inv?.length) await insert('invites', { email, role: l.kind });
+    return { profileId: null, role: null };
+  },
+  removeLink: (id) => supabase.from('account_links').delete().eq('id', id).then(check),
+  redeemCode: (code) =>
+    supabase.rpc('redeem_link_code', { c: code }).then((r) => {
+      check(r);
+      return r.data;
+    }),
   setPrefs: (uid, prefs) => supabase.from('profiles').update({ prefs }).eq('id', uid).then(check),
   resetAll: async () => {
     for (const t of DATA_TABLES) {

@@ -1,27 +1,28 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FiDownload, FiPrinter } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import RecentGrades, { GradeChip, Change } from '../components/dashboard/Grades.jsx';
 import { TrendLine, Legend, useMonthData } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Segmented } from '../components/ui/index.jsx';
-import { SUBJECT_GRADES, GRADE_HISTORY, RECENT_GRADES, AUTUMN_MONTHS, CHILDREN, CHILD_SUBJECT_GRADES } from '../data/mock.js';
+import { RECENT_GRADES, AUTUMN_MONTHS } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { downloadCSV } from '../lib/download.js';
 
 export default function Grades() {
   const [term, setTerm] = useState('year');
-  const [params, setParams] = useSearchParams();
   const { toast, recentGrades, role } = useApp();
   const { t, ts, fmtDec } = useI18n();
-  const childId = role === 'parent' && CHILDREN.some((c) => c.id === params.get('child')) ? params.get('child') : 'alex';
-  const child = CHILDREN.find((c) => c.id === childId);
-  const SUBJECTS = childId === 'alex' ? SUBJECT_GRADES : CHILD_SUBJECT_GRADES[childId];
-  const fullHistory = childId === 'alex' ? GRADE_HISTORY : GRADE_HISTORY.map((d, i) => ({ ...d, you: child.trend[i] ?? d.you, cls: Math.round((child.trend[i] ?? d.you) * 10 - 2) / 10 }));
+  const { child, childId, setChildId, options, many } = useChild({ fromParams: true });
+  const isAlex = child.demo && child.id === 'alex';
+  const SUBJECTS = child.subjects;
+  const fullHistory = child.history;
   const history = useMonthData(term === 'autumn' ? fullHistory.filter((d) => AUTUMN_MONTHS.includes(d.month)) : fullHistory);
-  const baseRecent = childId === 'alex' ? RECENT_GRADES : child.recent;
+  const low = Math.floor(Math.min(...fullHistory.flatMap((d) => [d.you, d.cls])) * 2) / 2;
+  const baseRecent = isAlex ? RECENT_GRADES : child.recent;
   const avg = SUBJECTS.reduce((a, s) => a + s.average, 0) / SUBJECTS.length;
   const best = [...SUBJECTS].sort((a, b) => b.average - a.average)[0];
   const improved = [...SUBJECTS].sort((a, b) => b.change - a.change)[0];
@@ -50,14 +51,12 @@ export default function Grades() {
           </>
         }
       />
-      {role === 'parent' && (
-        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={(v) => setParams({ child: v }, { replace: true })} options={CHILDREN.map((c) => ({ value: c.id, label: `${c.name} · ${c.className}` }))} />
-      )}
+      {role === 'parent' && many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={options} />}
 
       <div className="stats-grid stats-grid-3">
-        <StatsCard label={t('grades.overall')} value={fmtDec(avg, 2)} suffix={t('common.of5')} delta={0.1} deltaLabel={`+${fmtDec(0.1)}`} hint={t('dash.stats.vsLastTerm')} />
+        <StatsCard label={t('grades.overall')} value={fmtDec(avg, 2)} suffix={t('common.of5')} {...(isAlex ? { delta: 0.1, deltaLabel: `+${fmtDec(0.1)}`, hint: t('dash.stats.vsLastTerm') } : {})} />
         <StatsCard label={t('grades.strongest')} value={ts(best.subject)} hint={t('grades.average', { v: fmtDec(best.average) })} />
-        <StatsCard label={t('grades.improved')} value={ts(improved.subject)} delta={improved.change} deltaLabel={`+${fmtDec(improved.change)}`} hint={t('grades.thisTerm')} />
+        <StatsCard label={t('grades.improved')} value={ts(improved.subject)} delta={improved.change} deltaLabel={`${improved.change >= 0 ? '+' : '−'}${fmtDec(Math.abs(improved.change))}`} hint={t('grades.thisTerm')} />
       </div>
 
       <div className="grid-2-1">
@@ -84,7 +83,7 @@ export default function Grades() {
                 { label: t('grades.classAverage'), dashed: true },
               ]}
             />
-            <TrendLine data={history} x="month" y="you" compare="cls" yDomain={childId === "alex" ? [4, 5] : [3.5, 5]} names={{ you: t("dash.student.you"), cls: t("grades.classAverage") }} height={250} />
+            <TrendLine data={history} x="month" y="you" compare="cls" yDomain={[Math.min(isAlex ? 4 : 3.5, low), 5]} names={{ you: t("dash.student.you"), cls: t("grades.classAverage") }} height={250} />
           </div>
         </section>
         <section className="panel">

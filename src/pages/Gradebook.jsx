@@ -3,7 +3,8 @@ import { FiPlus, FiDownload, FiTrash2, FiLock, FiCheckCircle } from 'react-icons
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { GradeChip } from '../components/dashboard/Grades.jsx';
 import { Avatar, SearchInput, Select, Segmented, Modal, EmptyState, Popover } from '../components/ui/index.jsx';
-import { TEACHER_CLASSES, CLASSES, GRADE_LEVELS, TODAY, isoDay } from '../data/mock.js';
+import { CLASSES, GRADE_LEVELS, TODAY, isoDay, WEEKDAYS } from '../data/mock.js';
+import { lessonsForClass } from '../lib/timetable.js';
 import { useApp, GRADE_SUBJECT } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { downloadCSV } from '../lib/download.js';
@@ -127,20 +128,28 @@ function MarkCell({ value, onSet, readOnly, label }) {
 }
 
 export default function Gradebook() {
-  const { role, students, gradebookColumns, getMark, setMark, addColumn, removeColumn, getFinal, setFinals, toast } = useApp();
+  const { role, students, gradebookColumns, getMark, setMark, addColumn, removeColumn, getFinal, setFinals, toast, myTeacherClasses, timetable } = useApp();
   const [confirmFinals, setConfirmFinals] = useState(false);
   const { t, tr, ts, fmtDate, fmtDec } = useI18n();
   const isTeacher = role === 'teacher';
-  const [cls, setCls] = useState(isTeacher ? TEACHER_CLASSES[0].name : '9-A');
+  const [pick, setCls] = useState(null);
+  const cls = isTeacher ? (myTeacherClasses.some((c) => c.name === pick) ? pick : myTeacherClasses[0]?.name || '') : pick || '9-A';
+  const [subjPick, setSubject] = useState('Mathematics');
   const [year, setYear] = useState('9');
   const [q, setQ] = useState('');
   const [modal, setModal] = useState(null); // { title, date, type }
   const [confirm, setConfirm] = useState(null);
 
-  const clsInfo = TEACHER_CLASSES.find((c) => c.name === cls);
-  const subject = GRADE_SUBJECT[clsInfo?.subject] || 'Mathematics';
+  const clsInfo = myTeacherClasses.find((c) => c.name === cls);
+  // Subjects of this class (from the timetable) for the admin's read-only view.
+  const classSubjects = useMemo(() => {
+    const set = new Set(['Mathematics']);
+    for (const d of WEEKDAYS) for (const l of lessonsForClass(timetable, cls, d)) set.add(GRADE_SUBJECT[l.subject] || l.subject);
+    return [...set].sort();
+  }, [timetable, cls]);
+  const subject = isTeacher ? GRADE_SUBJECT[clsInfo?.subject] || clsInfo?.subject || 'Mathematics' : classSubjects.includes(subjPick) ? subjPick : classSubjects[0];
   const readOnly = !isTeacher;
-  const columns = gradebookColumns(cls);
+  const columns = gradebookColumns(cls, subject);
   const roster = useMemo(() => students.filter((s) => s.className === cls && s.status !== 'Inactive').sort((a, b) => a.name.localeCompare(b.name)), [students, cls]);
   const rows = roster.filter((s) => s.name.toLowerCase().includes(q.trim().toLowerCase()));
   const colTitle = (c) => (c.titleL ? tr(c.titleL) : tr(c.title));
@@ -161,7 +170,7 @@ export default function Gradebook() {
   };
 
   const classOptions = isTeacher
-    ? TEACHER_CLASSES.map((c) => ({ value: c.name, label: `${c.name} · ${ts(c.subject)}` }))
+    ? myTeacherClasses.map((c) => ({ value: c.name, label: `${c.name} · ${ts(c.subject)}` }))
     : CLASSES.filter((c) => String(c.grade) === String(year)).map((c) => ({ value: c.name, label: c.name }));
 
   return (
@@ -203,6 +212,7 @@ export default function Gradebook() {
               }}
             />
             <Select label={t('table.class')} value={cls} options={classOptions} onChange={setCls} />
+            <Select label={t('grades.colSubject')} value={subject} options={classSubjects.map((x) => ({ value: x, label: ts(x) }))} onChange={setSubject} />
           </div>
         )}
         <SearchInput value={q} onChange={setQ} placeholder={t('dash.teacher.searchClass')} id="gb-search" style={{ width: 240 }} />
@@ -330,7 +340,7 @@ export default function Gradebook() {
               className="btn btn-primary"
               onClick={() => {
                 if (!modal.title.trim()) return setModal({ ...modal, error: t('dash.teacher.errTitle') });
-                addColumn(cls, { title: modal.title.trim(), date: new Date(`${modal.date}T12:00:00`), type: modal.type });
+                addColumn(cls, { title: modal.title.trim(), date: new Date(`${modal.date}T12:00:00`), type: modal.type, subject });
                 setModal(null);
                 toast(t('gradebook.columnAdded'));
               }}

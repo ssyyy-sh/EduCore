@@ -9,9 +9,7 @@ import {
   CLASS_TUTORS,
   GRADEBOOK_SEED,
   ANNOUNCEMENTS_SEED,
-  DEMO_STUDENT_IDS,
-  TEACHER_CLASSES,
-  CHILDREN,
+  DEMO_LINKS,
   seedAttendance,
   seedMark,
   isoDay,
@@ -23,6 +21,7 @@ import {
   L,
 } from '../data/mock.js';
 import { buildTimetable } from '../lib/timetable.js';
+import { buildChild, buildTeacherClasses } from '../lib/family.js';
 import { readJSON, writeJSON } from '../lib/storage.js';
 import { useAuth } from './AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -62,7 +61,13 @@ const EMPTY = {
   behavior: [], // [{ id, studentId, cls, kind: 'praise'|'remark', category, note, author, authorId, at }]
   finals: {}, // { 'term|class|studentId|subject': { grade, at } }
   contacts: [], // server mode: people I can chat with [{ id, name, role }]
+  links: [], // [{ id, profileId, email, kind: 'student'|'parent'|'teacher', studentId, studentName, className, teacherId, teacherName, subject, classes, accountName }]
+  codes: [], // [{ code, kind, studentId, studentName, className, expiresAt, usedBy, usedAt }]
 };
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const makeCode = () => Array.from(crypto.getRandomValues(new Uint32Array(8)), (n) => CODE_CHARS[n % CODE_CHARS.length]).join('');
+const normEmail = (e) => String(e || '').trim().toLowerCase();
 
 function addRead(d, key, uid, ids) {
   if (!uid) return d;
@@ -95,6 +100,14 @@ function loadData() {
   if (!('meetings' in base)) d.meetings = MEETINGS_SEED;
   if (!('behavior' in base)) d.behavior = BEHAVIOR_SEED;
   if (!('chat' in base)) d.chat = CHAT_SEED;
+  if (!('links' in base)) d.links = DEMO_LINKS;
+  // Older saves kept one submission per assignment: key them by assignment and student.
+  for (const [k, v] of Object.entries(d.submissions)) {
+    if (!k.includes('|') && v?.studentId) {
+      d.submissions = { ...d.submissions, [`${k}|${v.studentId}`]: { className: '9-A', ...v } };
+      delete d.submissions[k];
+    }
+  }
   // Older saves kept read state as a flat list; start fresh in that case.
   if (Array.isArray(d.readNotifications)) d.readNotifications = {};
   if (Array.isArray(d.readMessages)) d.readMessages = {};
@@ -105,7 +118,7 @@ function loadData() {
   return d;
 }
 
-export function AppProvider({ children }) {
+export function AppProvider({ children: content }) {
   const { user, directory } = useAuth();
   const isOwner = user?.role === 'owner';
   // The Owner sees the app through one of the four roles at a time ("view as").
@@ -163,8 +176,7 @@ export function AppProvider({ children }) {
   const uidRef = useRef(null);
   const serverScope = useMemo(() => {
     if (!user || user.role === 'pending') return null;
-    const classes = user.role === 'teacher' ? TEACHER_CLASSES.map((c) => c.name) : user.role === 'student' ? ['9-A'] : user.role === 'parent' ? CHILDREN.map((c) => c.className) : [];
-    return { uid: user.id, role: user.role, myClasses: classes };
+    return { uid: user.id, role: user.role };
   }, [user]);
   const scopeRef = useRef(serverScope);
   scopeRef.current = serverScope;
@@ -264,20 +276,6 @@ export function AppProvider({ children }) {
     [toast, tt, scheduleReload]
   );
 
-  // ----- who am I (demo mapping) -----
-  // Student accounts see Alex; parent accounts see the three Morgan children; teachers see Mr. Hayes' classes.
-  const myStudentIds = useMemo(() => {
-    if (role === 'student') return [DEMO_STUDENT_IDS.alex];
-    if (role === 'parent') return CHILDREN.map((c) => c.studentId);
-    return [];
-  }, [role]);
-  const myClasses = useMemo(() => {
-    if (role === 'teacher') return TEACHER_CLASSES.map((c) => c.name);
-    if (role === 'student') return ['9-A'];
-    if (role === 'parent') return CHILDREN.map((c) => c.className);
-    return [];
-  }, [role]);
-
   // ----- people -----
   const students = useMemo(() => {
     const archived = new Set(data.archived);
@@ -295,25 +293,107 @@ export function AppProvider({ children }) {
     [data.addedTeachers, data.teacherEdits]
   );
   const tutors = useMemo(() => ({ ...CLASS_TUTORS, ...data.tutors }), [data.tutors]);
+  const timetable = useMemo(() => buildTimetable(data.timetable), [data.timetable]);
+
+  // ----- who am I: links to student cards / a teacher card -----
+  // student → own card; parent → each child's card; teacher → staff card with classes. The school admin links them.
+  const links = useMemo(
+    () =>
+      data.links.map((l) => {
+        if (l.kind === 'teacher') return l;
+        const card = students.find((s) => s.id === l.studentId);
+        return card ? { ...l, studentName: card.name, className: card.className } : l;
+      }),
+    [data.links, students]
+  );
+  const myLinks = useMemo(() => {
+    if (!user) return [];
+    const mine = links.filter((l) => l.profileId === user.id || (!l.profileId && l.email && normEmail(l.email) === normEmail(user.email)));
+    // The owner has no links of their own: they see the demo family and teacher.
+    if (isOwner && !mine.some((l) => l.kind === (role === 'student' ? 'student' : role === 'parent' ? 'parent' : 'teacher'))) {
+      const demoProfile = { student: 'demo-student', parent: 'demo-parent', teacher: 'demo-teacher' }[role];
+      return DEMO_LINKS.filter((l) => l.profileId === demoProfile);
+    }
+    return mine;
+  }, [links, user, isOwner, role]);
+
+  const children = useMemo(() => {
+    if (role !== 'student' && role !== 'parent') return [];
+    const seen = new Set();
+    return myLinks
+      .filter((l) => l.kind === role && !seen.has(l.studentId) && seen.add(l.studentId))
+      .map((l) => {
+        const card = students.find((s) => s.id === l.studentId) || { id: l.studentId, name: l.studentName || '—', className: l.className || '', score: 0, attendance: 100, progress: 0, isNew: true };
+        const tutorId = tutors[card.className];
+        const tutorName = tutorId ? teachers.find((x) => x.id === tutorId)?.name : '';
+        return { ...buildChild(card, { timetable, tutorName }), linkId: l.id };
+      });
+  }, [myLinks, role, students, teachers, tutors, timetable]);
+
+  const teacherLink = useMemo(() => {
+    if (role !== 'teacher') return null;
+    const own = myLinks.filter((l) => l.kind === 'teacher');
+    if (!own.length) return null;
+    const first = own[0];
+    const card = teachers.find((x) => x.id === first.teacherId);
+    const classes = [...new Set(own.flatMap((l) => (teachers.find((x) => x.id === l.teacherId)?.classes || l.classes || [])))];
+    return { ...first, teacherName: card?.name || first.teacherName, subject: card?.subject || first.subject, classes };
+  }, [myLinks, role, teachers]);
+
+  /** Whose lessons a teacher account sees in the timetable. */
+  const meTeacher = useMemo(
+    () => (teacherLink ? { id: teacherLink.teacherId, name: teacherLink.teacherName, aliases: teacherLink.teacherId === 't-hayes' ? ['Mr. Hayes'] : [] } : { id: '', name: user?.name || '', aliases: [] }),
+    [teacherLink, user]
+  );
+  const myTeacherClasses = useMemo(() => buildTeacherClasses(teacherLink, { students, timetable }), [teacherLink, students, timetable]);
+  const linked = role === 'school' || (role === 'teacher' ? !!teacherLink : children.length > 0);
+
+  const myStudentIds = useMemo(() => children.map((c) => c.studentId), [children]);
+  const myClasses = useMemo(() => (role === 'teacher' ? teacherLink?.classes || [] : [...new Set(children.map((c) => c.className))]), [role, teacherLink, children]);
+  const selfChild = role === 'student' ? children[0] || null : null;
 
   // ----- assignments -----
+  // Starting (demo) assignments belong to class 9-A; new ones carry their class.
   const assignments = useMemo(() => {
-    const created = data.newAssignments.map((a) => ({ ...a, due: new Date(a.due), status: 'Pending', created: true }));
-    const base = ASSIGNMENTS.map((a) => a);
-    return [...created, ...base].map((a) => {
-      const sub = data.submissions[a.id];
-      if (data.submitted.includes(a.id) || sub) return { ...a, status: 'Completed', submission: sub || null };
-      return a;
+    const now = Date.now();
+    const created = data.newAssignments.map((a) => {
+      const due = new Date(a.due);
+      return { ...a, due, status: due.getTime() + 86400000 < now ? 'Overdue' : 'Pending', created: true };
     });
-  }, [data.newAssignments, data.submitted, data.submissions]);
+    const base = ASSIGNMENTS.map((a) => ({ ...a, cls: a.cls || '9-A', seed: true }));
+    const subs = Object.entries(data.submissions).map(([k, v]) => ({ ...v, assignmentId: k.split('|')[0] }));
+    const all = [...created, ...base];
+    if (role === 'school') return all.map((a) => ({ ...a, submissions: subs.filter((x) => x.assignmentId === a.id) }));
+    if (role === 'teacher') {
+      const alias = new Set([meTeacher.name, ...meTeacher.aliases].filter(Boolean));
+      return all
+        .filter((a) => myClasses.includes(a.cls))
+        .map((a) => ({ ...a, mine: a.created ? a.teacher === user?.name : alias.has(a.teacher), submissions: subs.filter((x) => x.assignmentId === a.id) }));
+    }
+    // Student / parent: assignments of the child's class, with that child's submission.
+    const out = [];
+    for (const a of all) {
+      const kids = children.filter((c) => c.className === a.cls);
+      if (!kids.length) continue;
+      const kid = kids.find((c) => data.submissions[`${a.id}|${c.studentId}`]) || kids[0];
+      const sub = data.submissions[`${a.id}|${kid.studentId}`] || null;
+      const isAlex = kid.demo && kid.id === 'alex';
+      let status = a.status;
+      if (sub || (isAlex && data.submitted.includes(a.id))) status = 'Completed';
+      else if (a.seed && !isAlex) status = a.due.getTime() + 86400000 < now ? 'Overdue' : 'Pending';
+      out.push({ ...a, status, submission: sub, child: kid });
+    }
+    return out;
+  }, [data.newAssignments, data.submitted, data.submissions, role, myClasses, meTeacher, children, user]);
 
   // ----- gradebook -----
+  /** Columns of one class's gradebook for one subject (the starting columns are Mathematics). */
   const gradebookColumns = useCallback(
-    (cls) => {
+    (cls, subject) => {
       const g = data.gradebook[cls] || {};
       const removed = new Set(g.removed || []);
-      const seed = GRADEBOOK_SEED.filter((c) => !removed.has(c.id));
-      const added = (g.columns || []).filter((c) => !removed.has(c.id)).map((c) => ({ ...c, date: new Date(c.date) }));
+      const seed = !subject || subject === 'Mathematics' ? GRADEBOOK_SEED.filter((c) => !removed.has(c.id)) : [];
+      const added = (g.columns || []).filter((c) => !removed.has(c.id) && (!subject || !c.subject || c.subject === subject)).map((c) => ({ ...c, date: new Date(c.date) }));
       return [...seed, ...added].sort((a, b) => a.date - b.date);
     },
     [data.gradebook]
@@ -374,10 +454,6 @@ export function AppProvider({ children }) {
     [gradeLog]
   );
 
-  // ----- timetable -----
-  const timetable = useMemo(() => buildTimetable(data.timetable), [data.timetable]);
-  /** Whose lessons a teacher account sees (demo mapping: Mr. Hayes). */
-  const meTeacher = useMemo(() => ({ id: 't-hayes', name: 'Daniel Hayes', aliases: ['Mr. Hayes'] }), []);
 
   // ----- chat -----
   const myId = user?.id;
@@ -418,7 +494,7 @@ export function AppProvider({ children }) {
     // New grades for my students
     for (const g of gradeLog) {
       if (!myStudentIds.includes(g.studentId)) continue;
-      const child = CHILDREN.find((c) => c.studentId === g.studentId);
+      const child = children.find((c) => c.studentId === g.studentId);
       out.push({
         id: `grade-${g.id}`,
         type: 'grade',
@@ -435,11 +511,11 @@ export function AppProvider({ children }) {
     }
     // Submissions waiting for the teacher
     if (role === 'teacher') {
-      for (const [aid, s] of Object.entries(data.submissions)) {
-        if (s.grade) continue;
-        const a = assignments.find((x) => x.id === aid);
-        if (!a) continue;
-        out.push({ id: `sub-${aid}-${s.at}`, type: 'assignment', title: L('New submission', 'Новая сданная работа', 'Yangi topshirilgan ish'), text: compose({ en: '{n} · {t}', ru: '{n} · {t}', uz: '{n} · {t}' }, { n: s.studentName || 'Alex Morgan', t: a.title }), at: new Date(s.at), unread: true });
+      for (const a of assignments) {
+        for (const s of a.submissions || []) {
+          if (s.grade) continue;
+          out.push({ id: `sub-${a.id}-${s.studentId}-${s.at}`, type: 'assignment', title: L('New submission', 'Новая сданная работа', 'Yangi topshirilgan ish'), text: compose({ en: '{n} · {t}', ru: '{n} · {t}', uz: '{n} · {t}' }, { n: s.studentName || '—', t: a.title }), at: new Date(s.at), unread: true, link: '/app/assignments' });
+        }
       }
     }
     // Chat: one notification per person with unread messages
@@ -454,7 +530,7 @@ export function AppProvider({ children }) {
     const weekAgo = Date.now() - 14 * 86400000;
     for (const b of behavior) {
       if (!myStudentIds.includes(b.studentId) || b.date.getTime() < weekAgo) continue;
-      const child = CHILDREN.find((c) => c.studentId === b.studentId);
+      const child = children.find((c) => c.studentId === b.studentId);
       const title = b.kind === 'praise' ? { en: 'Praise', ru: 'Поощрение', uz: 'Rag‘bat' } : { en: 'Remark', ru: 'Замечание', uz: 'Tanbeh' };
       out.push({ id: `beh-${b.id}`, type: 'behavior', title: role === 'parent' ? compose({ en: '{k}: {n}', ru: '{k}: {n}', uz: '{k}: {n}' }, { k: title, n: child?.name }) : title, text: typeof b.note === 'object' ? b.note : { en: b.note, ru: b.note, uz: b.note }, at: b.date, unread: true, link: '/app/behavior' });
     }
@@ -466,7 +542,7 @@ export function AppProvider({ children }) {
       }
     }
     return out;
-  }, [gradeLog, myStudentIds, role, data.announcements, data.submissions, announcements, assignments, user, chat, contacts, behavior, meetings, myId]);
+  }, [gradeLog, myStudentIds, children, role, data.announcements, announcements, assignments, user, chat, contacts, behavior, meetings, myId]);
 
   // Each role gets its own feed; read state is kept per account.
   const notifications = useMemo(
@@ -485,6 +561,8 @@ export function AppProvider({ children }) {
   }, [data.sentMessages, uid, role, readM]);
 
   // ----- actions -----
+  const whoRef = useRef({});
+  whoRef.current = { selfChild, directory };
   const actions = useMemo(() => {
     const uid = user?.id;
     const newId = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -499,21 +577,24 @@ export function AppProvider({ children }) {
     return {
       submitAssignment: (id) => update((d) => ({ ...d, submitted: d.submitted.includes(id) ? d.submitted : [...d.submitted, id] })),
       submitWork: (assignmentId, { files, comment }) => {
-        const sub = { studentId: DEMO_STUDENT_IDS.alex, studentName: user?.name, files, comment, at: new Date().toISOString(), grade: null, feedback: '' };
-        update((d) => ({ ...d, submissions: { ...d.submissions, [assignmentId]: sub } }));
-        return sync(() => api.submitWork({ assignmentId, studentId: sub.studentId, studentName: sub.studentName, files, comment }));
+        const me = whoRef.current.selfChild;
+        if (!me) return Promise.resolve(false);
+        const sub = { studentId: me.studentId, studentName: me.full || user?.name, className: me.className, files, comment, at: new Date().toISOString(), grade: null, feedback: '' };
+        update((d) => ({ ...d, submissions: { ...d.submissions, [`${assignmentId}|${sub.studentId}`]: sub } }));
+        return sync(() => api.submitWork({ assignmentId, studentId: sub.studentId, studentName: sub.studentName, cls: sub.className, files, comment }));
       },
-      gradeSubmission: (assignment, { grade, feedback }) => {
+      gradeSubmission: (assignment, studentId, { grade, feedback }) => {
         const d0 = dataRef.current;
-        const sub = d0.submissions[assignment.id];
+        const key = `${assignment.id}|${studentId}`;
+        const sub = d0.submissions[key];
         if (!sub) return Promise.resolve(false);
-        const cls = assignment.cls || '9-A';
+        const cls = sub.className || assignment.cls || '9-A';
         const existing = (gbOf(d0, cls).columns || []).find((c) => c.fromAssignment === assignment.id);
         const title = typeof assignment.title === 'object' ? assignment.title.en : assignment.title;
-        const column = existing ? null : { id: `a-${assignment.id}`, title, titleL: assignment.title, date: new Date().toISOString(), type: assignment.type, fromAssignment: assignment.id };
+        const column = existing ? null : { id: `a-${assignment.id}`, title, titleL: assignment.title, date: new Date().toISOString(), type: assignment.type, fromAssignment: assignment.id, subject: GRADE_SUBJECT[assignment.subject] || assignment.subject };
         const log = logEntry({ studentId: sub.studentId, subject: assignment.subject, work: assignment.title, grade });
         update((d) => {
-          let next = { ...d, submissions: { ...d.submissions, [assignment.id]: { ...sub, grade, feedback, gradedAt: new Date().toISOString() } } };
+          let next = { ...d, submissions: { ...d.submissions, [key]: { ...sub, grade, feedback, gradedAt: new Date().toISOString() } } };
           if (column) {
             const g = gbOf(next, cls);
             next = { ...next, gradebook: { ...next.gradebook, [cls]: { ...g, columns: [...(g.columns || []), column] } } };
@@ -522,7 +603,7 @@ export function AppProvider({ children }) {
           return addLog(next, log);
         });
         return sync(() =>
-          api.gradeSubmission({ assignmentId: assignment.id, studentId: sub.studentId, grade, feedback, cls, column, log: { id: log.id, student_id: log.studentId, subject: log.subject, work: log.work, grade, at: log.at } })
+          api.gradeSubmission({ assignmentId: assignment.id, studentId: sub.studentId, grade, feedback, cls, column, log: { id: log.id, student_id: log.studentId, class_name: cls, subject: log.subject, work: log.work, grade, at: log.at } })
         );
       },
       addAssignment: (a) => {
@@ -538,7 +619,7 @@ export function AppProvider({ children }) {
           return log ? addLog(next, log) : next;
         });
         return sync(() =>
-          api.setMark({ cls, studentId: student.id, columnId: col.id, grade, log: log && { id: log.id, student_id: log.studentId, subject: log.subject, work: log.work, grade, at: log.at } })
+          api.setMark({ cls, studentId: student.id, columnId: col.id, grade, log: log && { id: log.id, student_id: log.studentId, class_name: cls, subject: log.subject, work: log.work, grade, at: log.at } })
         );
       },
       addColumn: (cls, col) => {
@@ -711,12 +792,81 @@ export function AppProvider({ children }) {
             cls,
             subject,
             list,
-            logs: logs.map((l) => ({ id: l.id, student_id: l.studentId, subject: l.subject, work: l.work, grade: l.grade, at: l.at })),
+            logs: logs.map((l) => ({ id: l.id, student_id: l.studentId, class_name: cls, subject: l.subject, work: l.work, grade: l.grade, at: l.at })),
           })
         );
       },
+      // Account links (school admin / owner)
+      createLinkCode: (kind, student) => {
+        const row = { code: makeCode(), kind, studentId: student.id, studentName: student.name, className: student.className, expiresAt: new Date(Date.now() + 14 * 86400000).toISOString(), usedBy: null, usedAt: null, createdAt: new Date().toISOString() };
+        update((d) => ({ ...d, codes: [row, ...d.codes] }));
+        return sync(() => api.addLinkCode(row)).then((ok) => (ok ? row.code : null));
+      },
+      removeLinkCode: (code) => {
+        update((d) => ({ ...d, codes: d.codes.filter((c) => c.code !== code) }));
+        return sync(() => api.removeLinkCode(code));
+      },
+      /** Link an account by email: an existing account is linked at once, otherwise when someone signs up with that email. */
+      linkByEmail: async (kind, target, email) => {
+        const e = normEmail(email);
+        const base =
+          kind === 'teacher'
+            ? { kind, teacherId: target.id, teacherName: target.name, subject: target.subject, classes: target.classes || [] }
+            : { kind, studentId: target.id, studentName: target.name, className: target.className };
+        const d0 = dataRef.current;
+        if (d0.links.some((l) => l.kind === kind && (l.studentId || l.teacherId) === target.id && normEmail(l.email) === e)) return { ok: false, error: 'exists' };
+        if (!REMOTE) {
+          const acc = (whoRef.current.directory || []).find((a) => normEmail(a.email) === e);
+          if (acc && d0.links.some((l) => l.kind === kind && (l.studentId || l.teacherId) === target.id && l.profileId === acc.id)) return { ok: false, error: 'exists' };
+          const row = { id: newId('l'), profileId: acc?.id || null, email: e, accountName: acc?.name || null, createdAt: new Date().toISOString(), ...base };
+          update((d) => ({ ...d, links: [row, ...d.links] }));
+          return { ok: true, linked: !!acc, role: acc?.role || null };
+        }
+        try {
+          const res = await api.addLink(e, base);
+          scheduleReload(200);
+          return { ok: true, linked: !!res.profileId, role: res.role };
+        } catch (err) {
+          console.warn('[educore] link failed', err);
+          return { ok: false, error: /duplicate|unique/i.test(err?.message || '') ? 'exists' : 'server' };
+        }
+      },
+      unlink: (id) => {
+        update((d) => ({ ...d, links: d.links.filter((l) => l.id !== id) }));
+        return sync(() => api.removeLink(id));
+      },
+      /** A student or parent enters the code from the school. */
+      redeemCode: async (raw) => {
+        const code = String(raw || '').replace(/[\s-]/g, '').toUpperCase();
+        if (!code) return { ok: false, error: 'invalid' };
+        if (REMOTE) {
+          try {
+            const res = await api.redeemCode(code);
+            if (res?.ok) scheduleReload(0);
+            return res?.ok ? { ok: true, studentName: res.student_name, className: res.class_name } : { ok: false, error: res?.error || 'invalid' };
+          } catch (err) {
+            console.warn('[educore] redeem failed', err);
+            return { ok: false, error: 'server' };
+          }
+        }
+        const d0 = dataRef.current;
+        const r = user?.role;
+        if (r !== 'student' && r !== 'parent') return { ok: false, error: 'role' };
+        const c = d0.codes.find((x) => x.code === code);
+        if (!c || c.usedBy || new Date(c.expiresAt) < new Date()) return { ok: false, error: 'invalid' };
+        if (c.kind !== r) return { ok: false, error: 'kind' };
+        if (r === 'student' && d0.links.some((l) => l.profileId === uid && l.kind === 'student' && l.studentId !== c.studentId)) return { ok: false, error: 'already' };
+        const row = { id: newId('l'), profileId: uid, email: user?.email, accountName: user?.name, kind: c.kind, studentId: c.studentId, studentName: c.studentName, className: c.className, createdAt: new Date().toISOString() };
+        const at = new Date().toISOString();
+        update((d) => ({
+          ...d,
+          links: d.links.some((l) => l.profileId === uid && l.kind === c.kind && l.studentId === c.studentId) ? d.links : [row, ...d.links],
+          codes: d.codes.map((x) => (x.code === code ? { ...x, usedBy: uid, usedAt: at } : x)),
+        }));
+        return { ok: true, studentName: c.studentName, className: c.className };
+      },
       resetData: () => {
-        update(() => ({ ...EMPTY }));
+        update((d) => ({ ...EMPTY, links: d.links, codes: d.codes }));
         return sync(() => api.resetAll());
       },
       backupData: () => (REMOTE ? api.backup() : Promise.resolve(null)),
@@ -727,7 +877,7 @@ export function AppProvider({ children }) {
         return sync(() => api.setPrefs(uid, merged));
       },
     };
-  }, [update, user, sync]);
+  }, [update, user, sync, scheduleReload]);
 
   const value = useMemo(
     () => ({
@@ -736,6 +886,14 @@ export function AppProvider({ children }) {
       remote: REMOTE,
       timetable,
       meTeacher,
+      children,
+      selfChild,
+      myTeacherClasses,
+      teacherLink,
+      linked,
+      links,
+      myLinks,
+      linkCodes: data.codes,
       contacts,
       chat,
       chatUnread,
@@ -771,10 +929,10 @@ export function AppProvider({ children }) {
       isoDay,
       ...actions,
     }),
-    [role, ready, reload, timetable, meTeacher, contacts, chat, chatUnread, meetings, behavior, getFinal, finalsForStudent, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
+    [role, ready, reload, timetable, meTeacher, children, selfChild, myTeacherClasses, teacherLink, linked, links, myLinks, data.codes, contacts, chat, chatUnread, meetings, behavior, getFinal, finalsForStudent, isOwner, viewAs, setViewAs, theme, setTheme, toast, toasts, assignments, notifications, messages, students, teachers, tutors, announcements, gradeLog, recentGrades, myStudentIds, myClasses, data.attendance, gradebookColumns, getMark, getAttendance, attendanceSummary, prefs, actions]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={value}>{content}</AppContext.Provider>;
 }
 
 export function useApp() {

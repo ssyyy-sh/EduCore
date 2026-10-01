@@ -1,22 +1,21 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FiPrinter, FiArrowLeft } from 'react-icons/fi';
 import Logo from '../components/Logo.jsx';
 import { Segmented } from '../components/ui/index.jsx';
 import { GradeChip } from '../components/dashboard/Grades.jsx';
-import { SUBJECT_GRADES, CHILDREN, CHILD_SUBJECT_GRADES, ORG, TODAY, schoolDays, isoDay } from '../data/mock.js';
+import { ORG, TODAY, schoolDays, isoDay } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 
 const DAYS = schoolDays(120);
 
 export default function ReportCard() {
-  const [params, setParams] = useSearchParams();
   const { role, students, getAttendance, finalsForStudent } = useApp();
   const { t, tr, ts, fmtDec, fmtPct, fmtDate } = useI18n();
-  const childId = role === 'parent' && CHILDREN.some((c) => c.id === params.get('child')) ? params.get('child') : 'alex';
-  const child = CHILDREN.find((c) => c.id === childId);
+  const { child, childId, setChildId, children, many } = useChild({ fromParams: true });
   const student = students.find((s) => s.id === child.studentId);
-  const subjects = childId === 'alex' ? SUBJECT_GRADES : CHILD_SUBJECT_GRADES[childId];
+  const subjects = child.subjects;
   const overall = subjects.reduce((a, s) => a + s.average, 0) / subjects.length;
   const finals = Object.fromEntries(finalsForStudent(child.studentId).map((f) => [f.subject, f.grade]));
 
@@ -31,9 +30,7 @@ export default function ReportCard() {
           <FiArrowLeft /> {t('reportCard.back')}
         </Link>
         <div className="rc-toolbar-right">
-          {role === 'parent' && (
-            <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={(v) => setParams({ child: v }, { replace: true })} options={CHILDREN.map((c) => ({ value: c.id, label: c.name }))} />
-          )}
+          {role === 'parent' && many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={children.map((c) => ({ value: c.id, label: c.name }))} />}
           <button type="button" className="btn btn-primary" onClick={() => window.print()}>
             <FiPrinter /> {t('reportCard.print')}
           </button>

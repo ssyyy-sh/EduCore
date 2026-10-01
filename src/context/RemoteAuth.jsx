@@ -11,6 +11,15 @@ import { MIN_PASSWORD } from '../config.js';
 const ROLES = ['student', 'parent', 'teacher', 'school', 'pending'];
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 
+/** Turn a Supabase Auth error into a short reason the UI can explain. */
+export function authReason(error) {
+  const m = `${error?.code || ''} ${error?.message || ''}`;
+  if (error?.status === 429 || /rate.?limit|over_email_send_rate|too many/i.test(m)) return 'rate';
+  if (/failed to fetch|networkerror|load failed|network/i.test(m) || error?.status === 0) return 'network';
+  if (/database error/i.test(m)) return 'server';
+  return 'other';
+}
+
 async function fetchProfile(uid) {
   for (let i = 0; i < 3; i++) {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
@@ -99,7 +108,8 @@ export function RemoteAuthProvider({ children }) {
     if (error) {
       const code = error.code || '';
       if (code === 'email_not_confirmed' || /confirm/i.test(error.message)) return { ok: false, error: 'unconfirmed' };
-      if (/fetch|network/i.test(error.message)) return { ok: false, error: 'network' };
+      const why = authReason(error);
+      if (why === 'rate' || why === 'network' || why === 'server') return { ok: false, error: why, detail: error.message };
       return { ok: false, error: 'invalid' };
     }
     const p = await fetchProfile(data.user.id).catch(() => null);
@@ -131,8 +141,9 @@ export function RemoteAuthProvider({ children }) {
     });
     if (error) {
       if (/registered|exists/i.test(error.message)) return { ok: false, error: 'exists' };
-      if (/password/i.test(error.message)) return { ok: false, error: 'weak' };
-      return { ok: false, error: 'network' };
+      const why = authReason(error);
+      if (why === 'other' && /password/i.test(error.message)) return { ok: false, error: 'weak' };
+      return { ok: false, error: why, detail: error.message };
     }
     // With e-mail confirmation on, Supabase hides whether the address is taken: no identities = already registered.
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return { ok: false, error: 'exists' };
@@ -153,7 +164,7 @@ export function RemoteAuthProvider({ children }) {
 
   const sendReset = useCallback(async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(normEmail(email), { redirectTo: siteUrl() });
-    return { ok: !error };
+    return error ? { ok: false, error: authReason(error), detail: error.message } : { ok: true };
   }, []);
 
   const finishRecovery = useCallback(async (password) => {

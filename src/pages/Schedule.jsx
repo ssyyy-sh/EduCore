@@ -3,7 +3,8 @@ import { FiChevronLeft, FiChevronRight, FiDownload, FiList, FiGrid, FiEdit3, FiP
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { LessonBlock, DaySchedule, toMin } from '../components/dashboard/Schedule.jsx';
 import { Segmented, Select, Modal } from '../components/ui/index.jsx';
-import { WEEKDAYS, PERIODS, TODAY, addDays, todayKey, CHILDREN, CLASSES, GRADE_LEVELS } from '../data/mock.js';
+import { WEEKDAYS, PERIODS, TODAY, addDays, todayKey, CLASSES, GRADE_LEVELS } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { downloadICS } from '../lib/download.js';
@@ -178,7 +179,7 @@ export default function Schedule() {
   const [day, setDay] = useState(todayKey().day);
   const { toast, role, timetable, meTeacher } = useApp();
   const { t, tr, ts, tw, fmtDate } = useI18n();
-  const [childId, setChildId] = useState('alex');
+  const { child, childId, setChildId, options, many } = useChild();
   const [year, setYear] = useState('9');
   const [adminCls, setAdminCls] = useState('9-A');
   const [editing, setEditing] = useState(false);
@@ -186,7 +187,7 @@ export default function Schedule() {
 
   const isAdmin = role === 'school';
   const isTeacher = role === 'teacher';
-  const cls = role === 'parent' ? CHILDREN.find((c) => c.id === childId).className : isAdmin ? adminCls : '9-A';
+  const cls = isAdmin ? adminCls : child?.className || '';
   const lessonsOf = (d) =>
     isTeacher ? lessonsForTeacher(timetable, meTeacher, d).map((l) => ({ ...l, who: t('common.class', { name: l.cls }) })) : lessonsForClass(timetable, cls, d);
 
@@ -194,7 +195,7 @@ export default function Schedule() {
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const todayIdx = WEEKDAYS.findIndex((_, i) => addDays(monday, i).getTime() === TODAY.getTime());
-  const week = useMemo(() => Object.fromEntries(WEEKDAYS.map((d) => [d, lessonsOf(d)])), [timetable, cls, isTeacher, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  const week = useMemo(() => Object.fromEntries(WEEKDAYS.map((d) => [d, lessonsOf(d)])), [timetable, cls, isTeacher, meTeacher, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const lessonsCount = WEEKDAYS.reduce((a, d) => a + week[d].length, 0);
   const dayIdx = WEEKDAYS.indexOf(day);
   const lastPeriod = Math.max(6, ...Object.values(week).flat().map((l) => l.p), editing ? 7 : 0);
@@ -232,9 +233,7 @@ export default function Schedule() {
         }
       />
 
-      {role === 'parent' && (
-        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((c) => ({ value: c.id, label: `${c.name} · ${c.className}` }))} />
-      )}
+      {role === 'parent' && many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={options} />}
 
       {isAdmin && (
         <div className="filters-row">

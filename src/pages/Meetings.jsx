@@ -3,7 +3,8 @@ import { FiPlus, FiTrash2, FiClock, FiMapPin, FiX, FiCheck, FiCalendar } from 'r
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Modal, EmptyState, Segmented, Avatar } from '../components/ui/index.jsx';
-import { CHILDREN, TODAY, isoDay, addDays } from '../data/mock.js';
+import { TODAY, isoDay, addDays } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -222,10 +223,9 @@ function ParentMeetings() {
   const { meetings, bookSlot, cancelBooking, toast } = useApp();
   const { user } = useAuth();
   const { t, fmtDate } = useI18n();
-  const [childId, setChildId] = useState('alex');
+  const { child, childId, setChildId, children, many } = useChild();
   const [booking, setBooking] = useState(null); // { m, note }
   const now = new Date();
-  const child = CHILDREN.find((c) => c.id === childId);
   const mine = meetings.filter((m) => m.bookedBy === user.id && m.date > addDays(TODAY, -1));
   const free = meetings.filter((m) => !m.bookedBy && m.date > now);
   const teachers = useMemo(() => {
@@ -287,7 +287,7 @@ function ParentMeetings() {
             <h3>{t('meetings.freeSlots')}</h3>
             <p>{t('meetings.freeSlotsSub')}</p>
           </div>
-          <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((c) => ({ value: c.id, label: c.name }))} />
+          {many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={children.map((c) => ({ value: c.id, label: c.name }))} />}
         </div>
         <div className="panel-body">
           {teachers.length === 0 ? (

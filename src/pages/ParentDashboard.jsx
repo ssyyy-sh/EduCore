@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiAward, FiUserCheck, FiTrendingUp, FiCheckSquare, FiArrowRight, FiMessageSquare, FiAlertCircle, FiClock, FiCheckCircle, FiPrinter } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
@@ -7,35 +6,36 @@ import RecentGrades from '../components/dashboard/Grades.jsx';
 import NotificationsList from '../components/dashboard/Notifications.jsx';
 import { Sparkline } from '../components/dashboard/Analytics.jsx';
 import { Avatar, Segmented, useFakeLoading, Bar } from '../components/ui/index.jsx';
-import { CHILDREN } from '../data/mock.js';
+import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
 import { greetingKey } from '../components/dashboard/greeting.js';
 
 export default function ParentDashboard() {
-  const [childId, setChildId] = useState('alex');
+  const { child: base, childId, setChildId, options, many } = useChild();
   const loading = useFakeLoading(300, [childId]);
   const { notifications, assignments, markNotificationRead, recentGrades, students, attendanceSummary } = useApp();
   const { user } = useAuth();
   const { t, tr, fmtDec, relativeDue } = useI18n();
   const navigate = useNavigate();
-  const base = CHILDREN.find((x) => x.id === childId);
-  // Alex's numbers come from the live assignment list, so they match the student's own dashboard.
-  const c =
-    childId === 'alex'
-      ? {
-          ...base,
-          assignments: {
-            done: assignments.filter((a) => a.status === 'Completed').length,
-            pending: assignments.filter((a) => a.status === 'Pending').length,
-            overdue: assignments.filter((a) => a.status === 'Overdue').length,
-          },
-        }
-      : base;
-  const att = attendanceSummary(students.find((s) => s.id === c.studentId));
+  // Numbers come from the live assignment list of this child's class (the demo's younger children keep their sample numbers).
+  const mine = assignments.filter((a) => a.child?.studentId === base.studentId);
+  const sample = base.demo && base.id !== 'alex' && base.assignments;
+  const c = {
+    ...base,
+    assignments: sample || {
+      done: mine.filter((a) => a.status === 'Completed').length,
+      pending: mine.filter((a) => a.status === 'Pending').length,
+      overdue: mine.filter((a) => a.status === 'Overdue').length,
+    },
+  };
+  const att = attendanceSummary(students.find((s) => s.id === c.studentId) || { id: c.studentId, className: c.className, isNew: true });
   const totalA = c.assignments.done + c.assignments.pending + c.assignments.overdue;
-  const upcoming = c.upcoming.map((id) => assignments.find((a) => a.id === id)).filter((a) => a && a.status !== 'Completed');
+  const upcoming = mine
+    .filter((a) => a.status !== 'Completed')
+    .sort((a, b) => a.due - b.due)
+    .slice(0, 4);
 
   return (
     <div className="page">
@@ -47,7 +47,7 @@ export default function ParentDashboard() {
             <Link to={`/app/report-card?child=${c.id}`} className="btn btn-secondary">
               <FiPrinter /> {t('reportCard.open')}
             </Link>
-            <Link to={`/app/messages?to=${encodeURIComponent(c.tutor)}&role=Teacher`} className="btn btn-primary">
+            <Link to={c.tutor && c.tutor !== '—' ? `/app/messages?to=${encodeURIComponent(c.tutor)}` : '/app/messages'} className="btn btn-primary">
               <FiMessageSquare /> {t('dash.parent.message')}
             </Link>
           </>
@@ -55,7 +55,7 @@ export default function ParentDashboard() {
       />
 
       <div className="child-switch">
-        <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={CHILDREN.map((ch) => ({ value: ch.id, label: `${ch.name} · ${ch.className}` }))} />
+        {many && <Segmented label={t('dash.parent.selectChild')} value={childId} onChange={setChildId} options={options} />}
         <div className="child-meta">
           <Avatar name={c.full} size={24} />
           <span>{t('dash.parent.childMeta', { name: c.full, cls: c.className, tutor: c.tutor })}</span>
