@@ -24,8 +24,8 @@
 ## 3. Адрес сайта для писем
 
 **Authentication → URL Configuration**:
-- **Site URL**: `https://ssyyy-sh.github.io/EduCore/`
-- **Redirect URLs** → Add URL: `https://ssyyy-sh.github.io/EduCore/`
+- **Site URL**: `https://ssyyy-sh.github.io/EduFY/`
+- **Redirect URLs** → Add URL: `https://ssyyy-sh.github.io/EduFY/`
 
 Нужно для писем «подтвердите почту» и «сброс пароля».
 
