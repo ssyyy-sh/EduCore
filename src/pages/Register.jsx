@@ -63,6 +63,9 @@ export default function Register() {
       <AuthLayout image={IMAGES.studentsLaptops}>
         <h1>{t('auth.register.confirmTitle')}</h1>
         <p className="auth-sub">{t('auth.register.confirmText', { email: confirmSent })}</p>
+        <p className="hint hint-box">
+          <FiInfo aria-hidden="true" /> {t('auth.register.spamHint')}
+        </p>
         <Link to="/login" className="btn btn-primary btn-lg">
           {t('auth.register.signIn')} <FiArrowRight />
         </Link>
