@@ -28,7 +28,7 @@ export default function Grades() {
   const improved = [...SUBJECTS].sort((a, b) => b.change - a.change)[0];
 
   const exportCSV = () => {
-    const ok = downloadCSV(`educore-grades-${childId}.csv`, [
+    const ok = downloadCSV(`edufy-grades-${childId}.csv`, [
       [t('grades.colSubject'), t('grades.colTeacher'), t('grades.colGrade'), t('grades.colAverage'), t('grades.colChange')],
       ...SUBJECTS.map((s) => [ts(s.subject), s.teacher, s.grade, s.average, s.change]),
     ]);

@@ -56,7 +56,7 @@ export default function Students() {
   };
 
   const template = () => {
-    if (downloadCSV('educore-import-template.csv', [[t('students.first'), t('students.last'), t('students.class'), t('students.guardianName'), t('students.gEmail')], ['Alex', 'Morgan', '9-A', 'Sarah Morgan', 'sarah@example.com']])) toast(t('students.importDone'));
+    if (downloadCSV('edufy-import-template.csv', [[t('students.first'), t('students.last'), t('students.class'), t('students.guardianName'), t('students.gEmail')], ['Alex', 'Morgan', '9-A', 'Sarah Morgan', 'sarah@example.com']])) toast(t('students.importDone'));
   };
 
   return (

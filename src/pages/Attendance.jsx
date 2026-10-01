@@ -52,7 +52,7 @@ function StaffAttendance() {
 
   const exportCSV = () => {
     const days = DAYS.slice(0, 20).reverse();
-    const ok = downloadCSV(`educore-attendance-${cls}.csv`, [
+    const ok = downloadCSV(`edufy-attendance-${cls}.csv`, [
       [t('table.name'), 'ID', ...days.map((d) => isoDay(d))],
       ...roster.map((s) => [s.name, s.id, ...days.map((d) => t(`attendance.short.${getAttendance(s, isoDay(d))}`))]),
     ]);

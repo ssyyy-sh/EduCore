@@ -39,7 +39,7 @@ export function downloadICS(filename, events) {
       (e, i) =>
         [
           'BEGIN:VEVENT',
-          `UID:educore-${i}-${e.start.getTime()}@educore`,
+          `UID:edufy-${i}-${e.start.getTime()}@edufy`,
           `DTSTAMP:${now}`,
           `DTSTART:${icsDate(e.start)}`,
           `DTEND:${icsDate(e.end)}`,
@@ -52,6 +52,6 @@ export function downloadICS(filename, events) {
           .join('\r\n')
     )
     .join('\r\n');
-  const text = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//EduCore//Schedule//EN', 'CALSCALE:GREGORIAN', body, 'END:VCALENDAR'].join('\r\n');
+  const text = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//EduFY//Schedule//EN', 'CALSCALE:GREGORIAN', body, 'END:VCALENDAR'].join('\r\n');
   return downloadText(filename, text, 'text/calendar');
 }

@@ -13,7 +13,7 @@ function Chrome({ children, label }) {
         <span />
         <span />
         <span />
-        <div className="mock-url">app.educore.io</div>
+        <div className="mock-url">app.edufy.io</div>
       </div>
       {children}
     </div>

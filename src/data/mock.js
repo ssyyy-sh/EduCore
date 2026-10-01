@@ -1,5 +1,5 @@
 /* ==========================================================
-   Demo data for EduCore — one fictional organisation
+   Demo data for EduFY — one fictional organisation
    (Northbridge Academy): 4,862 students, 327 teachers, 186 classes.
    Generated deterministically so numbers are stable between reloads.
    Text shown to users is stored as { en, ru, uz }.

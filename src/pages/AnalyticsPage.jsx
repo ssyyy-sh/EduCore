@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
       [t('analytics.colMonth'), `${t('dash.school.perfSeries')} %`, `${t('dash.school.target')} %`, `${t('analytics.attTitle')} %`, t('dash.school.active')],
       ...PERFORMANCE_TREND.map((p) => [tm(p.month), p.performance, p.target, p.attendance, ACTIVE_STUDENTS_TREND.find((a) => a.month === p.month)?.active ?? '']),
     ];
-    if (downloadCSV('educore-analytics.csv', rows)) toast(t('analytics.exported'));
+    if (downloadCSV('edufy-analytics.csv', rows)) toast(t('analytics.exported'));
   };
 
   return (

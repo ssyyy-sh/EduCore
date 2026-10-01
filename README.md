@@ -1,4 +1,4 @@
-# EduCore
+# EduFY
 
 EdTech platform for students, parents, teachers and school administrators, designed for organisations of up to 5,000 students.
 Interface in **English, Russian and Uzbek (Latin)**.

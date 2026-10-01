@@ -43,7 +43,7 @@ export default function SchoolDashboard() {
               type="button"
               className="btn btn-secondary"
               onClick={() => {
-                if (exportStudentsCSV(atRisk, t, tStatusFrom(t), 'educore-students-at-risk.csv')) toast(t('table.exportedRows', { n: atRisk.length }));
+                if (exportStudentsCSV(atRisk, t, tStatusFrom(t), 'edufy-students-at-risk.csv')) toast(t('table.exportedRows', { n: atRisk.length }));
               }}
             >
               <FiDownload /> {t('dash.school.exportAtRisk')}

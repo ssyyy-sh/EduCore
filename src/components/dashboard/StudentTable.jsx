@@ -27,7 +27,7 @@ function classSort(a, b) {
 }
 
 /** Exports rows as CSV with headers in the current language. */
-export function exportStudentsCSV(rows, t, tStatus, filename = 'educore-students.csv') {
+export function exportStudentsCSV(rows, t, tStatus, filename = 'edufy-students.csv') {
   return downloadCSV(filename, [
     ['ID', t('table.name'), t('table.class'), `${t('table.grade')} %`, `${t('table.attendance')} %`, `${t('table.progress')} %`, t('table.status'), t('table.guardian'), t('table.email')],
     ...rows.map((s) => [s.id, s.name, s.className, s.score, s.attendance, s.progress, tStatus(s.status), s.guardian, s.email]),
@@ -181,7 +181,7 @@ export default function StudentTable({ students: list, initialQuery = '', initia
             className="btn btn-secondary btn-sm"
             onClick={() => {
               const rows = selectedRows();
-              if (exportStudentsCSV(rows, t, tStatus, 'educore-students-selected.csv')) toast(t('table.exportedRows', { n: rows.length }));
+              if (exportStudentsCSV(rows, t, tStatus, 'edufy-students-selected.csv')) toast(t('table.exportedRows', { n: rows.length }));
             }}
           >
             <FiDownload /> {t('common.export')}

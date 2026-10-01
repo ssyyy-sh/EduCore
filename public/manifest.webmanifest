@@ -1,6 +1,6 @@
 {
-  "name": "EduCore",
-  "short_name": "EduCore",
+  "name": "EduFY",
+  "short_name": "EduFY",
   "description": "One platform for students, parents, teachers and schools.",
   "start_url": "./",
   "scope": "./",

@@ -15,7 +15,7 @@ export default function Logo({ to = '/', compact }) {
   return (
     <Link to={to} className="logo" aria-label={t('nav.home')}>
       <LogoMark />
-      {!compact && <span>EduCore</span>}
+      {!compact && <span>EduFY</span>}
     </Link>
   );
 }

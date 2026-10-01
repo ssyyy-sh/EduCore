@@ -1,7 +1,7 @@
 {
-  "name": "educore",
+  "name": "edufy",
   "version": "1.0.0",
-  "description": "EduCore — school platform for students, parents, teachers and administrators.",
+  "description": "EduFY — school platform for students, parents, teachers and administrators.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -78,7 +78,7 @@ export default function Owner() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `educore-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `edufy-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();

@@ -223,7 +223,7 @@ export const api = {
 
 /** Live updates: calls onChange (debounced by the caller) whenever shared data changes on the server. */
 export function subscribe(onChange) {
-  const channel = supabase.channel('educore-live');
+  const channel = supabase.channel('edufy-live');
   for (const table of LIVE_TABLES) channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table));
   channel.subscribe();
   return () => supabase.removeChannel(channel);

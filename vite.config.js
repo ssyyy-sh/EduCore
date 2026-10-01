@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       {
-        name: 'educore-html-vars',
+        name: 'edufy-html-vars',
         transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%SITE_URL%', SITE_URL).replaceAll('%BASE%', base) },
       },
       ...(single ? [viteSingleFile()] : []),

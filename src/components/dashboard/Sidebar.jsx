@@ -43,7 +43,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
           <Link to="/" className="side-brand" aria-label={t('nav.home')}>
             <LogoMark size={24} />
             <span className="side-label">
-              <strong>EduCore</strong>
+              <strong>EduFY</strong>
               <em>{user?.org || ORG.name}</em>
             </span>
           </Link>

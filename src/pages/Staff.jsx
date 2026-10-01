@@ -123,7 +123,7 @@ export default function Staff() {
               type="button"
               className="btn btn-secondary"
               onClick={() => {
-                const ok = downloadCSV('educore-teachers.csv', [[t('table.name'), t('table.email'), t('staff.subject'), t('staff.classes'), t('table.status')], ...filtered.map((x) => [x.name, x.email, ts(x.subject), x.classes.join(' '), tStatus(x.status)])]);
+                const ok = downloadCSV('edufy-teachers.csv', [[t('table.name'), t('table.email'), t('staff.subject'), t('staff.classes'), t('table.status')], ...filtered.map((x) => [x.name, x.email, ts(x.subject), x.classes.join(' '), tStatus(x.status)])]);
                 if (ok) toast(t('table.exportedRows', { n: filtered.length }));
               }}
             >

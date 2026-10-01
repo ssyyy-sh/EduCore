@@ -162,7 +162,7 @@ export default function Gradebook() {
   const confirmedCount = roster.filter((st) => finalOf(st)).length;
 
   const exportCSV = () => {
-    const ok = downloadCSV(`educore-gradebook-${cls}.csv`, [
+    const ok = downloadCSV(`edufy-gradebook-${cls}.csv`, [
       [t('table.name'), 'ID', ...columns.map((c) => `${colTitle(c)} (${fmtDate(c.date)})`), t('gradebook.average'), t('gradebook.final')],
       ...roster.map((s) => [s.name, s.id, ...columns.map((c) => getMark(cls, s, c.id) ?? ''), studentAvg(s) != null ? fmtDec(studentAvg(s)) : '', finalOf(s)?.grade ?? '']),
     ]);

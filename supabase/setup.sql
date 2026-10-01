@@ -1,7 +1,7 @@
 -- =====================================================================
--- EduCore — database for Supabase
+-- EduFY — database for Supabase
 -- Paste this whole file into Supabase → SQL Editor → New query → Run.
--- It is safe to run again (after an update of EduCore, for example).
+-- It is safe to run again (after an update of EduFY, for example).
 -- =====================================================================
 
 -- ---------- Accounts ----------

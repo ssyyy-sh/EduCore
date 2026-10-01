@@ -190,7 +190,7 @@ export function AppProvider({ children: content }) {
       if (scopeRef.current?.uid !== scope.uid || pendingWrites.current > 0) return;
       setData(next);
     } catch (e) {
-      console.warn('[educore] load failed', e);
+      console.warn('[edufy] load failed', e);
     } finally {
       if (scopeRef.current?.uid === scope.uid) setReady(true);
     }
@@ -213,7 +213,7 @@ export function AppProvider({ children: content }) {
         const chat = await loadChat(scope.uid);
         if (scopeRef.current?.uid === scope.uid) setData((d) => ({ ...d, chat }));
       } catch (e) {
-        console.warn('[educore] chat load failed', e);
+        console.warn('[edufy] chat load failed', e);
       }
     }, 150);
   }, []);
@@ -264,7 +264,7 @@ export function AppProvider({ children: content }) {
         .then(fn)
         .then(() => true)
         .catch((e) => {
-          console.warn('[educore] save failed', e);
+          console.warn('[edufy] save failed', e);
           toast(tt('sync.error'));
           return false;
         })
@@ -827,7 +827,7 @@ export function AppProvider({ children: content }) {
           scheduleReload(200);
           return { ok: true, linked: !!res.profileId, role: res.role };
         } catch (err) {
-          console.warn('[educore] link failed', err);
+          console.warn('[edufy] link failed', err);
           return { ok: false, error: /duplicate|unique/i.test(err?.message || '') ? 'exists' : 'server' };
         }
       },
@@ -845,7 +845,7 @@ export function AppProvider({ children: content }) {
             if (res?.ok) scheduleReload(0);
             return res?.ok ? { ok: true, studentName: res.student_name, className: res.class_name } : { ok: false, error: res?.error || 'invalid' };
           } catch (err) {
-            console.warn('[educore] redeem failed', err);
+            console.warn('[edufy] redeem failed', err);
             return { ok: false, error: 'server' };
           }
         }

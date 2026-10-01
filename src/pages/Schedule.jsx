@@ -209,7 +209,7 @@ export default function Schedule() {
         return { title: ts(l.subject), start: at(date, l.start), end: at(date, l.end), location: tr(l.room), description: isTeacher ? l.cls : l.teacher };
       })
     );
-    if (downloadICS(`educore-schedule-${monday.toISOString().slice(0, 10)}.ics`, events)) toast(t('schedule.synced'));
+    if (downloadICS(`edufy-schedule-${monday.toISOString().slice(0, 10)}.ics`, events)) toast(t('schedule.synced'));
   };
 
   const description = isTeacher ? t('timetable.subTeacher', { n: lessonsCount }) : isAdmin ? t('timetable.subAdmin', { cls, n: lessonsCount }) : t('schedule.sub', { n: lessonsCount });

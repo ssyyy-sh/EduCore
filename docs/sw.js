@@ -1,8 +1,8 @@
 /*
- * EduCore service worker: lets the app be installed and opened without a connection.
+ * EduFY service worker: lets the app be installed and opened without a connection.
  * Network first — you always get the latest version when online; the saved copy is used offline.
  */
-const CACHE = 'educore-v1';
+const CACHE = 'edufy-v1';
 const CORE = ['./', './index.html', './manifest.webmanifest', './favicon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
