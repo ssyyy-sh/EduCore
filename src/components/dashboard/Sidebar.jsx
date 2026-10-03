@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, Link } from 'react-router-dom';
 import { FiChevronsLeft, FiChevronsRight, FiX } from 'react-icons/fi';
 import { LogoMark } from '../Logo.jsx';
@@ -9,12 +11,33 @@ import { Avatar } from '../ui/index.jsx';
 import { ORG } from '../../data/mock.js';
 import { useRoleMeta } from './useRoleMeta.js';
 
-function Item({ it, collapsed, onNavigate, count }) {
+/** Hover / focus handlers that show a label next to an icon while the sidebar is collapsed. */
+function tipProps(collapsed, setTip, text, section, count) {
+  if (!collapsed) return {};
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ text, section, count, top: r.top + r.height / 2, left: r.right + 10 });
+  };
+  const hide = () => setTip(null);
+  return { onMouseEnter: show, onFocus: show, onMouseLeave: hide, onBlur: hide };
+}
+
+function Item({ it, collapsed, onNavigate, count, section, setTip }) {
   const { t } = useI18n();
   const label = t(`nav.${it.key}`);
   return (
     <li>
-      <NavLink to={it.to} end className={({ isActive }) => `side-link ${isActive ? 'is-active' : ''}`} onClick={onNavigate} title={collapsed ? label : undefined}>
+      <NavLink
+        to={it.to}
+        end
+        className={({ isActive }) => `side-link ${isActive ? 'is-active' : ''}`}
+        onClick={() => {
+          setTip(null);
+          onNavigate?.();
+        }}
+        aria-label={collapsed ? label : undefined}
+        {...tipProps(collapsed, setTip, label, section, count)}
+      >
         <it.icon aria-hidden="true" />
         <span className="side-label">{label}</span>
         {count ? <span className="side-count num">{count}</span> : null}
@@ -34,6 +57,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
     messages: chatUnread,
   };
   const used = students.length;
+  const [tip, setTip] = useState(null);
+  const ownerSection = t('nav.ownerSection');
+  const mainSection = isOwner ? t('nav.viewingAs', { role: t(`roles.${role}`) }) : t('nav.workspace');
+  const commsSection = t('nav.communication');
 
   return (
     <>
@@ -52,32 +79,32 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
           </button>
         </div>
 
-        <nav className="side-nav">
+        <nav className="side-nav" onScroll={() => setTip(null)}>
           {isOwner && (
             <>
               <p className="side-section side-label">{t('nav.ownerSection')}</p>
               <ul>
-                <Item it={OWNER_ITEM} collapsed={collapsed} onNavigate={onCloseMobile} />
+                <Item it={OWNER_ITEM} collapsed={collapsed} onNavigate={onCloseMobile} section={ownerSection} setTip={setTip} />
               </ul>
             </>
           )}
-          <p className="side-section side-label">{isOwner ? t('nav.viewingAs', { role: t(`roles.${role}`) }) : t('nav.workspace')}</p>
+          <p className="side-section side-label">{mainSection}</p>
           <ul>
             {nav.main.map((it) => (
-              <Item key={it.key} it={it} collapsed={collapsed} onNavigate={onCloseMobile} />
+              <Item key={it.key} it={it} collapsed={collapsed} onNavigate={onCloseMobile} section={mainSection} setTip={setTip} />
             ))}
           </ul>
-          <p className="side-section side-label">{t('nav.communication')}</p>
+          <p className="side-section side-label">{commsSection}</p>
           <ul>
             {nav.comms.map((it) => (
-              <Item key={it.key} it={it} collapsed={collapsed} onNavigate={onCloseMobile} count={counts[it.key]} />
+              <Item key={it.key} it={it} collapsed={collapsed} onNavigate={onCloseMobile} count={counts[it.key]} section={commsSection} setTip={setTip} />
             ))}
           </ul>
         </nav>
 
         <div className="side-bottom">
           <ul>
-            <Item it={SETTINGS_ITEM} collapsed={collapsed} onNavigate={onCloseMobile} />
+            <Item it={SETTINGS_ITEM} collapsed={collapsed} onNavigate={onCloseMobile} setTip={setTip} />
           </ul>
           {role === 'school' && (
             <div className="side-plan side-label">
@@ -90,19 +117,40 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
               </div>
             </div>
           )}
-          <div className="side-user">
+          <div className="side-user" tabIndex={collapsed ? 0 : undefined} {...tipProps(collapsed, setTip, user?.name, meta)}>
             <Avatar name={user?.name || ''} size={30} />
             <div className="side-label">
               <strong>{user?.name}</strong>
               <span>{meta}</span>
             </div>
           </div>
-          <button type="button" className="side-collapse" onClick={onToggle} aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}>
+          <button
+            type="button"
+            className="side-collapse"
+            onClick={() => {
+              setTip(null);
+              onToggle();
+            }}
+            aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            {...tipProps(collapsed, setTip, t('nav.expandSidebar'))}
+          >
             {collapsed ? <FiChevronsRight /> : <FiChevronsLeft />}
             <span className="side-label">{t('nav.collapse')}</span>
           </button>
         </div>
       </aside>
+      {collapsed &&
+        tip &&
+        createPortal(
+          <div className="side-tip" role="tooltip" style={{ top: tip.top, left: tip.left }}>
+            <strong>
+              {tip.text}
+              {tip.count ? <span className="side-tip-count num">{tip.count}</span> : null}
+            </strong>
+            {tip.section && <span>{tip.section}</span>}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
