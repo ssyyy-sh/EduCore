@@ -1160,3 +1160,35 @@ th.is-sorted .th-inner svg {
 .dropdown-item:disabled { opacity: 0.45; cursor: not-allowed; }
 .pagination-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .accordion-heading { margin: 0; font-size: inherit; letter-spacing: 0; }
+
+/* ---------- Form select (SelectField) ---------- */
+.select-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+.select-field:hover { border-color: var(--border-strong); }
+.select-field:focus-visible,
+.select-field.is-open { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.select-field:disabled { opacity: 0.55; cursor: not-allowed; }
+.select-field .sf-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-field .sf-value.is-placeholder { color: var(--faint); }
+.select-field .sf-hint { color: var(--muted); font-size: var(--fs-12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.select-field .sf-chev { width: 15px; height: 15px; color: var(--muted); flex: none; transition: transform var(--t-fast) var(--ease); }
+.select-field.is-open .sf-chev { transform: rotate(180deg); }
+.select-field-sm { height: 32px; font-size: var(--fs-13); padding: 0 10px; }
+.select-menu { padding: 4px; max-height: 320px; }
+.select-menu .dropdown-item { font-size: var(--fs-14); padding: 8px 10px; }
+.select-menu .dropdown-item.is-selected { background: var(--accent-softer); }
+.select-menu .dropdown-item.is-selected.is-focused { background: var(--accent-soft); }
+.select-menu .sf-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-menu .sf-item-hint { color: var(--muted); font-size: var(--fs-12); white-space: nowrap; font-weight: 400; }
+.select-menu .check-space { width: 15px; flex: none; }
+.select-menu .dropdown-item .check { margin-left: 0; }
+.sf-search { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px; margin: -4px -4px 4px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.sf-search svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
+.sf-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: var(--fs-14); color: var(--text); outline: none; }
+.sf-empty { padding: 10px; color: var(--muted); font-size: var(--fs-13); }

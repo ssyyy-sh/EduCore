@@ -1,5 +1,6 @@
 export default {
   common: {
+    noResults: "Hech narsa topilmadi",
     noGradesYet: "Hozircha baholar yo‘q.",
     loading: "Yuklanmoqda…",
     exportCsv: "CSV eksport",

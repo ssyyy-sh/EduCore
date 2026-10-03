@@ -1,5 +1,6 @@
 export default {
   common: {
+    noResults: "Nothing found",
     noGradesYet: "No grades yet.",
     loading: "Loading…",
     exportCsv: "Export CSV",

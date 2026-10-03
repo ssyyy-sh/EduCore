@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FiPlus, FiTrash2, FiVolume2 } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
-import { Avatar, Modal, EmptyState, Segmented } from '../components/ui/index.jsx';
+import { Avatar, Modal, EmptyState, Segmented, SelectField } from '../components/ui/index.jsx';
 import { CLASSES } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -125,13 +125,7 @@ export default function Announcements() {
               <label className="label" htmlFor="an-aud">
                 {t('announcements.audience')}
               </label>
-              <select id="an-aud" className="input select-native" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>
-                {audienceOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <SelectField id="an-aud" value={form.audience} options={audienceOptions} onChange={(v) => setForm({ ...form, audience: v })} />
             </div>
             <div className="field">
               <label className="label" htmlFor="an-title">

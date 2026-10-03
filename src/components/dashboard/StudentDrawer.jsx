@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiX, FiMail, FiHash, FiUsers, FiRepeat } from 'react-icons/fi';
-import { Avatar, Status, Bar } from '../ui/index.jsx';
+import { Avatar, Status, Bar, SelectField } from '../ui/index.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { CLASSES } from '../../data/mock.js';
@@ -99,14 +99,13 @@ export default function StudentDrawer({ student, onClose }) {
             <div className="drawer-block">
               <h3>{t('table.moveTitle')}</h3>
               <div className="move-row">
-                <select className="input select-native" aria-label={t('table.moveTo')} value={target} onChange={(e) => setTarget(e.target.value)}>
-                  <option value="">{t('table.moveTo')}</option>
-                  {CLASSES.filter((c) => c.grade === s.grade && c.name !== s.className).map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <SelectField
+                  ariaLabel={t('table.moveTo')}
+                  placeholder={t('table.moveTo')}
+                  value={target}
+                  options={CLASSES.filter((c) => c.grade === s.grade && c.name !== s.className).map((c) => c.name)}
+                  onChange={setTarget}
+                />
                 <button
                   type="button"
                   className="btn btn-secondary"

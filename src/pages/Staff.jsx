@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiUserPlus, FiMoreHorizontal, FiEdit2, FiArchive, FiRotateCcw, FiCopy, FiX, FiUsers, FiDownload } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { TeacherAccount } from '../components/dashboard/AccountLinks.jsx';
-import { Avatar, SearchInput, Select, Segmented, Pagination, Status, Modal, Menu, EmptyState } from '../components/ui/index.jsx';
+import { Avatar, SearchInput, Select, Segmented, Pagination, Status, Modal, Menu, EmptyState, SelectField } from '../components/ui/index.jsx';
 import { CLASSES, GRADE_LEVELS } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -315,13 +315,7 @@ export default function Staff() {
               <label className="label" htmlFor="st-subject">
                 {t('staff.subject')}
               </label>
-              <select id="st-subject" className="input select-native" value={addForm.subject} onChange={(e) => setAddForm({ ...addForm, subject: e.target.value })}>
-                {SUBJECTS.map((s) => (
-                  <option key={s} value={s}>
-                    {ts(s)}
-                  </option>
-                ))}
-              </select>
+              <SelectField id="st-subject" value={addForm.subject} options={SUBJECTS.map((s) => ({ value: s, label: ts(s) }))} onChange={(v) => setAddForm({ ...addForm, subject: v })} />
             </div>
             <ClassChips value={addForm.classes} onChange={(classesV) => setAddForm({ ...addForm, classes: classesV })} />
           </>
@@ -405,13 +399,7 @@ export default function Staff() {
               <label className="label" htmlFor="ed-subject">
                 {t('staff.subject')}
               </label>
-              <select id="ed-subject" className="input select-native" value={edit.subject} onChange={(e) => setEdit({ ...edit, subject: e.target.value })}>
-                {SUBJECTS.map((s) => (
-                  <option key={s} value={s}>
-                    {ts(s)}
-                  </option>
-                ))}
-              </select>
+              <SelectField id="ed-subject" value={edit.subject} options={SUBJECTS.map((s) => ({ value: s, label: ts(s) }))} onChange={(v) => setEdit({ ...edit, subject: v })} />
             </div>
             <ClassChips value={edit.classes} onChange={(classesV) => setEdit({ ...edit, classes: classesV })} />
             <TeacherAccount teacher={teachers.find((x) => x.id === edit.id) || edit} />
@@ -449,17 +437,18 @@ export default function Staff() {
             <label className="label" htmlFor="tutor-select">
               {t('staff.tutor')}
             </label>
-            <select id="tutor-select" className="input select-native" value={tutorFor.teacherId} onChange={(e) => setTutorFor({ ...tutorFor, teacherId: e.target.value })}>
-              <option value="">—</option>
-              {[...teachers]
-                .filter((x) => x.status === 'Active')
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name} · {ts(x.subject)}
-                  </option>
-                ))}
-            </select>
+            <SelectField
+              id="tutor-select"
+              value={tutorFor.teacherId}
+              options={[
+                { value: '', label: '—' },
+                ...[...teachers]
+                  .filter((x) => x.status === 'Active')
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((x) => ({ value: x.id, label: x.name, hint: ts(x.subject) })),
+              ]}
+              onChange={(v) => setTutorFor({ ...tutorFor, teacherId: v })}
+            />
           </div>
         )}
       </Modal>

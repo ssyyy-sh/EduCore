@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiBookOpen, FiUser, FiUsers, FiBriefcase, FiKey, FiArrowRight, FiMoreHorizontal, FiTrash2, FiRefreshCw, FiDownload, FiCopy, FiAlertTriangle, FiLock, FiUnlock, FiMail, FiClock } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
-import { Avatar, SearchInput, Select, Menu, Modal, EmptyState } from '../components/ui/index.jsx';
+import { Avatar, SearchInput, Select, Menu, Modal, EmptyState, SelectField } from '../components/ui/index.jsx';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -191,22 +191,18 @@ export default function Owner() {
                         {locked ? (
                           <span className="owner-role-tag">{t(`roles.${a.role}`)}</span>
                         ) : (
-                          <select
-                            className="input select-native select-sm"
-                            aria-label={t('owner.changeRole', { name: a.name })}
+                          <SelectField
+                            size="sm"
+                            className="owner-role-select"
+                            ariaLabel={t('owner.changeRole', { name: a.name })}
                             value={a.role}
-                            onChange={async (e) => {
-                              const r = e.target.value;
+                            options={roleOptions.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+                            onChange={async (r) => {
+                              if (r === a.role) return;
                               const ok = await setAccountRole(a.id, r);
                               toast(ok ? t('owner.roleChanged', { name: a.name, role: t(`roles.${r}`) }) : t('sync.error'));
                             }}
-                          >
-                            {roleOptions.map((r) => (
-                              <option key={r} value={r}>
-                                {t(`roles.${r}`)}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         )}
                       </td>
                       <td data-label={t('owner.created')} className="num">

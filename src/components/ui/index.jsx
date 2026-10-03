@@ -187,6 +187,149 @@ export function Select({ label, value, options, onChange, align, allLabel, icon:
   );
 }
 
+/* ---------- Form select (looks like the language menu) ---------- */
+/**
+ * A form field with a styled dropdown list instead of the browser's own <select>.
+ * options: values or { value, label, hint?, disabled? }. Long lists (over 12) get a search box.
+ */
+export function SelectField({ id: idProp, value, options, onChange, placeholder, ariaLabel, size, disabled, invalid, align, className = '' }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [focus, setFocus] = useState(-1);
+  const [q, setQ] = useState('');
+  const trigger = useRef(null);
+  const menu = useRef(null);
+  const search = useRef(null);
+  const autoId = useId();
+  const id = idProp || autoId;
+  useClickOutside([trigger, menu], () => setOpen(false), open);
+
+  const all = options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) }));
+  const searchable = all.length > 12;
+  const needle = q.trim().toLowerCase();
+  const opts = needle ? all.filter((o) => `${o.label} ${o.hint || ''}`.toLowerCase().includes(needle)) : all;
+  const current = all.find((o) => String(o.value) === String(value ?? ''));
+
+  const openMenu = () => {
+    if (disabled) return;
+    setQ('');
+    setOpen(true);
+    setFocus(Math.max(0, all.indexOf(current)));
+  };
+  const close = (refocus = true) => {
+    setOpen(false);
+    if (refocus) trigger.current?.focus();
+  };
+  const choose = (o) => {
+    if (!o || o.disabled) return;
+    onChange(o.value);
+    close();
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (searchable) setTimeout(() => search.current?.focus(), 0);
+  }, [open, searchable]);
+  useEffect(() => {
+    if (!open || focus < 0) return;
+    menu.current?.querySelector(`[data-i="${focus}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [open, focus]);
+
+  const onKey = (e) => {
+    if (!open) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation(); // close only the list, not the dialog around it
+      close();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocus((f) => Math.min(opts.length - 1, f + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocus((f) => Math.max(0, f - 1));
+    } else if (e.key === 'Enter' || (e.key === ' ' && !searchable)) {
+      e.preventDefault();
+      choose(opts[focus]);
+    } else if (e.key === 'Tab') {
+      close(false);
+    } else if (!searchable && e.key.length === 1) {
+      // Jump to the first option starting with the typed letter.
+      const k = e.key.toLowerCase();
+      const i = opts.findIndex((o) => String(o.label).toLowerCase().startsWith(k));
+      if (i >= 0) setFocus(i);
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={trigger}
+        id={id}
+        type="button"
+        className={`input select-field ${size === 'sm' ? 'select-field-sm' : ''} ${open ? 'is-open' : ''} ${className}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
+        aria-label={ariaLabel ? `${ariaLabel}: ${current?.label ?? placeholder ?? ''}` : undefined}
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={onKey}
+      >
+        <span className={`sf-value ${current ? '' : 'is-placeholder'}`}>{current ? current.label : placeholder ?? '—'}</span>
+        {current?.hint && <span className="sf-hint">{current.hint}</span>}
+        <FiChevronDown className="sf-chev" aria-hidden="true" />
+      </button>
+      <Floating open={open} anchorRef={trigger} floatRef={menu} align={align} role="listbox" id={`${id}-list`} className="select-menu">
+        {searchable && (
+          <div className="sf-search">
+            <FiSearch aria-hidden="true" />
+            <input
+              ref={search}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setFocus(0);
+              }}
+              onKeyDown={onKey}
+              placeholder={t('common.search')}
+              aria-label={t('common.search')}
+            />
+          </div>
+        )}
+        {opts.length === 0 && <div className="sf-empty">{t('common.noResults')}</div>}
+        {opts.map((o, i) => {
+          const selected = String(o.value) === String(value ?? '');
+          return (
+            <button
+              type="button"
+              key={String(o.value)}
+              data-i={i}
+              role="option"
+              aria-selected={selected}
+              disabled={o.disabled}
+              tabIndex={-1}
+              className={`dropdown-item ${selected ? 'is-selected' : ''} ${focus === i ? 'is-focused' : ''}`}
+              onMouseEnter={() => setFocus(i)}
+              onClick={() => choose(o)}
+            >
+              <span className="sf-item-label">{o.label}</span>
+              {o.hint && <span className="sf-item-hint">{o.hint}</span>}
+              {selected ? <FiCheck className="check" /> : <span className="check-space" aria-hidden="true" />}
+            </button>
+          );
+        })}
+      </Floating>
+    </>
+  );
+}
+
 /* ---------- Menu (actions) ---------- */
 export function Menu({ trigger, items, align = 'right', label }) {
   const { t } = useI18n();

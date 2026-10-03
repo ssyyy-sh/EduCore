@@ -1160,7 +1160,7 @@ button.gb-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .acc-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .acc-email { display: flex; flex-wrap: wrap; gap: 8px; }
 .acc-email .input { flex: 1 1 180px; min-width: 0; }
-.acc-email select.input { flex: 0 0 auto; width: auto; }
+.acc-kind { flex: 0 0 160px; min-width: 0; }
 .acc-email .field-error { flex-basis: 100%; }
 .code-chip { letter-spacing: 0.08em; font-size: var(--fs-14); }
 .sub-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -1173,3 +1173,4 @@ button.gb-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
   .code-row { flex-direction: column; }
   .link-gate { padding: 24px 16px; margin: 8px auto; }
 }
+.owner-role-select { width: 190px; max-width: 100%; }

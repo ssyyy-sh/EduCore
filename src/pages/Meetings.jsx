@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FiPlus, FiTrash2, FiClock, FiMapPin, FiX, FiCheck, FiCalendar } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
-import { Modal, EmptyState, Segmented, Avatar } from '../components/ui/index.jsx';
+import { Modal, EmptyState, Segmented, Avatar, SelectField } from '../components/ui/index.jsx';
 import { TODAY, isoDay, addDays } from '../data/mock.js';
 import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
@@ -158,25 +158,13 @@ function TeacherMeetings() {
                 <label className="label" htmlFor="mt-count">
                   {t('meetings.count')}
                 </label>
-                <select id="mt-count" className="input select-native" value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}>
-                  {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                <SelectField id="mt-count" value={form.count} options={[1, 2, 3, 4, 5, 6, 8, 10, 12]} onChange={(v) => setForm({ ...form, count: Number(v) })} />
               </div>
               <div className="field">
                 <label className="label" htmlFor="mt-dur">
                   {t('meetings.duration')}
                 </label>
-                <select id="mt-dur" className="input select-native" value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}>
-                  {[10, 15, 20, 30].map((n) => (
-                    <option key={n} value={n}>
-                      {n} {t('meetings.min')}
-                    </option>
-                  ))}
-                </select>
+                <SelectField id="mt-dur" value={form.duration} options={[10, 15, 20, 30].map((n) => ({ value: n, label: `${n} ${t('meetings.min')}` }))} onChange={(v) => setForm({ ...form, duration: Number(v) })} />
               </div>
             </div>
             <div className="field">

@@ -4,7 +4,7 @@ import { FiUsers, FiUserCheck, FiAward, FiCheckSquare, FiPlus, FiArrowRight, FiC
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StatsCard from '../components/dashboard/StatsCard.jsx';
 import { Bars } from '../components/dashboard/Analytics.jsx';
-import { Avatar, Status, SearchInput, Modal, EmptyState, Bar } from '../components/ui/index.jsx';
+import { Avatar, Status, SearchInput, Modal, EmptyState, Bar, SelectField } from '../components/ui/index.jsx';
 import { TEACHER_SUBMISSIONS, TODAY, addDays, schoolDays, isoDay } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -310,13 +310,7 @@ export default function TeacherDashboard() {
             <label className="label" htmlFor="na-class">
               {t('dash.teacher.fClass')}
             </label>
-            <select id="na-class" className="input select-native" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-              {classes.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <SelectField id="na-class" value={form.cls} options={classes.map((c) => ({ value: c.name, label: c.name, hint: ts(c.subject) }))} onChange={(v) => setForm({ ...form, cls: v })} />
           </div>
           <div className="field">
             <label className="label" htmlFor="na-due">

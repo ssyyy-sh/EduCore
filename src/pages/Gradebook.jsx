@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FiPlus, FiDownload, FiTrash2, FiLock, FiCheckCircle } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { GradeChip } from '../components/dashboard/Grades.jsx';
-import { Avatar, SearchInput, Select, Segmented, Modal, EmptyState, Popover } from '../components/ui/index.jsx';
+import { Avatar, SearchInput, Select, Segmented, Modal, EmptyState, Popover, SelectField } from '../components/ui/index.jsx';
 import { CLASSES, GRADE_LEVELS, TODAY, isoDay, WEEKDAYS } from '../data/mock.js';
 import { lessonsForClass } from '../lib/timetable.js';
 import { useApp, GRADE_SUBJECT } from '../context/AppContext.jsx';
@@ -370,13 +370,7 @@ export default function Gradebook() {
                 <label className="label" htmlFor="gb-type">
                   {t('gradebook.type')}
                 </label>
-                <select id="gb-type" className="input select-native" value={modal.type} onChange={(e) => setModal({ ...modal, type: e.target.value })}>
-                  {['Quiz', 'Homework', 'Project', 'Essay', 'Lab report'].map((ty) => (
-                    <option key={ty} value={ty}>
-                      {t(`types.${ty}`)}
-                    </option>
-                  ))}
-                </select>
+                <SelectField id="gb-type" value={modal.type} options={['Quiz', 'Homework', 'Project', 'Essay', 'Lab report'].map((ty) => ({ value: ty, label: t(`types.${ty}`) }))} onChange={(v) => setModal({ ...modal, type: v })} />
               </div>
             </div>
           </>

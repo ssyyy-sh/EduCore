@@ -1,5 +1,6 @@
 export default {
   common: {
+    noResults: "Ничего не найдено",
     noGradesYet: "Оценок пока нет.",
     loading: "Загрузка…",
     exportCsv: "Экспорт CSV",

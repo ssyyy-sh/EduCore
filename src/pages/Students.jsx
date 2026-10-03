@@ -4,7 +4,7 @@ import { FiDownload, FiUserPlus, FiFileText } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import StudentTable, { exportStudentsCSV } from '../components/dashboard/StudentTable.jsx';
 import StudentDrawer from '../components/dashboard/StudentDrawer.jsx';
-import { Modal, Segmented } from '../components/ui/index.jsx';
+import { Modal, Segmented, SelectField } from '../components/ui/index.jsx';
 import { CLASSES, ORG } from '../data/mock.js';
 import { useApp } from '../context/AppContext.jsx';
 import { useI18n } from '../i18n/I18nContext.jsx';
@@ -144,13 +144,7 @@ export default function Students() {
             <label className="label" htmlFor="as-class">
               {t('students.class')}
             </label>
-            <select id="as-class" className="input select-native" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-              {CLASSES.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <SelectField id="as-class" value={form.cls} options={CLASSES.map((c) => c.name)} onChange={(v) => setForm({ ...form, cls: v })} />
           </div>
           <div className="form-row">
             <div className="field">

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiDownload, FiList, FiGrid, FiEdit3, FiPlus, FiAlertTriangle, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
 import PageHeader from '../components/dashboard/PageHeader.jsx';
 import { LessonBlock, DaySchedule, toMin } from '../components/dashboard/Schedule.jsx';
-import { Segmented, Select, Modal } from '../components/ui/index.jsx';
+import { Segmented, Select, Modal, SelectField } from '../components/ui/index.jsx';
 import { WEEKDAYS, PERIODS, TODAY, addDays, todayKey, CLASSES, GRADE_LEVELS } from '../data/mock.js';
 import { useChild } from '../components/dashboard/useChild.js';
 import { useApp } from '../context/AppContext.jsx';
@@ -111,34 +111,21 @@ function EditLesson({ ctx, onClose }) {
         <label className="label" htmlFor="tt-subject">
           {t('staff.subject')}
         </label>
-        <select id="tt-subject" className="input select-native" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}>
-          {SUBJECTS.map((x) => (
-            <option key={x} value={x}>
-              {ts(x)}
-            </option>
-          ))}
-        </select>
+        <SelectField id="tt-subject" value={form.subject} options={SUBJECTS.map((x) => ({ value: x, label: ts(x) }))} onChange={(v) => setForm({ ...form, subject: v })} />
       </div>
       <div className="field">
         <label className="label" htmlFor="tt-teacher">
           {t('timetable.teacher')}
         </label>
-        <select
+        <SelectField
           id="tt-teacher"
-          className="input select-native"
           value={form.teacherId}
-          onChange={(e) => {
-            const tch = active.find((x) => x.id === e.target.value);
-            setForm({ ...form, teacherId: e.target.value, teacherName: tch ? tch.name : '' });
+          options={[{ value: '', label: form.teacherName && !form.teacherId ? form.teacherName : '—' }, ...options.map((x) => ({ value: x.id, label: x.name, hint: ts(x.subject) }))]}
+          onChange={(v) => {
+            const tch = active.find((x) => x.id === v);
+            setForm({ ...form, teacherId: v, teacherName: tch ? tch.name : v ? form.teacherName : '' });
           }}
-        >
-          <option value="">{form.teacherName && !form.teacherId ? form.teacherName : '—'}</option>
-          {options.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.name} · {ts(x.subject)}
-            </option>
-          ))}
-        </select>
+        />
         <label className="check-row check-row-sm">
           <input type="checkbox" className="checkbox" checked={form.allTeachers} onChange={(e) => setForm({ ...form, allTeachers: e.target.checked })} />
           <span>{t('timetable.allTeachers')}</span>

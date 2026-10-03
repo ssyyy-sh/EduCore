@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FiCopy, FiTrash2, FiKey, FiMail, FiLink2, FiClock } from 'react-icons/fi';
 import { useApp } from '../../context/AppContext.jsx';
+import { SelectField } from '../ui/index.jsx';
 import { useI18n } from '../../i18n/I18nContext.jsx';
 
 const isEmail = (e) => /^\S+@\S+\.\S+$/.test(String(e || '').trim());
@@ -79,21 +80,17 @@ function EmailLink({ kinds, defaults = {}, onLink }) {
   return (
     <form className="acc-email" onSubmit={submit} noValidate>
       {kinds.length > 1 && (
-        <select
-          className="input select-native"
-          aria-label={t('link.kindLabel')}
-          value={kind}
-          onChange={(e) => {
-            setKind(e.target.value);
-            if (!email || Object.values(defaults).includes(email)) setEmail(defaults[e.target.value] || '');
-          }}
-        >
-          {kinds.map((k) => (
-            <option key={k} value={k}>
-              {t(`link.kind.${k}`)}
-            </option>
-          ))}
-        </select>
+        <div className="acc-kind">
+          <SelectField
+            ariaLabel={t('link.kindLabel')}
+            value={kind}
+            options={kinds.map((k) => ({ value: k, label: t(`link.kind.${k}`) }))}
+            onChange={(k) => {
+              setKind(k);
+              if (!email || Object.values(defaults).includes(email)) setEmail(defaults[k] || '');
+            }}
+          />
+        </div>
       )}
       <input className="input" type="email" value={email} onChange={(e) => (setEmail(e.target.value), setError(''))} placeholder={t('link.emailPh')} aria-label={t('link.emailLabel')} aria-invalid={!!error} />
       <button type="submit" className="btn btn-secondary" disabled={busy}>
